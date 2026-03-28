@@ -2753,71 +2753,53 @@ function transactions() {
     })()}
     ${_selectedTxIds.size>0?`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--primary-light);border:1px solid var(--primary);border-radius:var(--radius);margin-bottom:8px;">
-      <span style="font-size:13px;font-weight:700;color:var(--primary);">✓ Vybráno: ${_selectedTxIds.size}</span>
+      <span style="font-size:13px;font-weight:700;color:var(--primary);">✓ ${_selectedTxIds.size} vybráno</span>
       <button class="btn btn-ghost btn-sm" onclick="bulkRecategorize()">🏷️ Přeřadit</button>
       <button class="btn btn-sm" style="background:var(--danger);color:#fff;" onclick="bulkDelete()">🗑️ Smazat</button>
-      <button class="btn btn-ghost btn-sm" onclick="_selectedTxIds.clear();renderMain();">× Zrušit</button>
+      <button class="btn btn-ghost btn-sm" onclick="_selectedTxIds.clear();renderMain();">×</button>
     </div>`:''}
-    <div class="card tx-card">
-      ${rows.length===0?`<div class="empty"><div class="eicon">💸</div><p>Žádné transakce</p></div>`:
-        `<table class="table tx-table">
-          <thead><tr>
-            <th style="width:32px;"><input type="checkbox" id="tx-select-all" onchange="toggleSelectAll(this.checked)" style="cursor:pointer;accent-color:var(--primary);width:15px;height:15px;"></th>
-            <th style="cursor:pointer;" onclick="sortTx('description')">Popis ${sortArrow('description')}</th>
-            <th style="cursor:pointer;" onclick="sortTx('category')">Kategorie ${sortArrow('category')}</th>
-            <th class="tx-col-acc">Účet</th>
-            <th style="cursor:pointer;" onclick="sortTx('date')">Datum ${sortArrow('date')}</th>
-            <th style="text-align:right;cursor:pointer;" onclick="sortTx('amount')">Částka ${sortArrow('amount')}</th>
-            <th style="text-align:right;" class="tx-col-run">Průběžně</th>
-            <th></th>
-          </tr></thead>
-          <tbody>${pageRows.map(t=>{
-            const runVal=runMap[t.id]||0;
-            const acc=t.accountId?D.accounts.find(a=>a.id===t.accountId):null;
-            const accAssets=D.accounts.filter(a=>!a.isLiability);
-            const accCell=accAssets.length>0
-              ?`<select onchange="setTxAcc('${t.id}',this.value)" style="border:none;background:transparent;color:${acc?'var(--text)':'var(--text3)'};font-size:12px;cursor:pointer;max-width:110px;padding:1px 2px;">
-                  <option value="">—</option>
-                  ${accAssets.map(a=>`<option value="${a.id}" ${t.accountId===a.id?'selected':''}>${a.name}</option>`).join('')}
-                </select>`
-              :`<span style="font-size:12px;color:var(--text3);">—</span>`;
-            const noteIcon=t.note?`<span title="${t.note.replace(/"/g,'&quot;')}" style="margin-left:4px;cursor:help;opacity:.6;">📝</span>`:'';
-            return`<tr onclick="openTxModal('${t.id}')" style="cursor:pointer;" title="Upravit">
-            <td onclick="event.stopPropagation()"><input type="checkbox" class="tx-check" data-id="${t.id}" ${_selectedTxIds.has(t.id)?'checked':''} onchange="toggleTxSelect('${t.id}',this.checked)" style="cursor:pointer;accent-color:var(--primary);width:15px;height:15px;"></td>
-            <td>
-              <span>${t.description||'—'}</span>${noteIcon}
-              ${t.tags&&t.tags.length?'<div style="margin-top:2px;">'+t.tags.map(tag=>`<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:100px;background:var(--primary-light);color:var(--primary);font-weight:600;margin-right:3px;cursor:pointer;" onclick="event.stopPropagation();txF.search='${tag}';txPage=1;renderMain();">${tag}</span>`).join('')+'</div>':''}
-              <div class="tx-mobile-sub">${fmtDate(t.date)} · ${(CAT_ICON[t.category]||'')} ${t.category||''}${acc?' · '+acc.name:''}</div>
-            </td>
-            <td onclick="event.stopPropagation()">
-              <span class="badge ${t.type==='income'?'b-inc':t.type==='transfer'?'b-neutral':'b-exp'}"
-                style="cursor:pointer;" onclick="openTxModal('${t.id}')" title="Klik = upravit">
-                ${CAT_ICON[t.category]||''} ${t.category||(t.type==='transfer'?'Převod':'—')}
-              </span>
-            </td>
-            <td class="tx-col-acc" onclick="event.stopPropagation()">${
-              t.type==='transfer'&&(t.fromAccountId||t.toAccountId)
-                ? `<span style="font-size:11px;color:var(--text2);">${D.accounts.find(a=>a.id===t.fromAccountId)?.name||'?'} → ${D.accounts.find(a=>a.id===t.toAccountId)?.name||'?'}</span>`
-                : accCell
-            }</td>
-            <td class="text-muted tx-col-date">${fmtDate(t.date)}</td>
-            <td style="text-align:right" class="${t.type==='income'?'amount-p':t.type==='transfer'?'text-muted':'amount-n'}">
-              ${t.type==='income'?'+':t.type==='transfer'?'↔':'−'}${fmtAmt(t.amount,t.currency)}
-            </td>
-            <td style="text-align:right;font-size:12px;" class="tx-col-run ${runVal>=0?'amount-p':'amount-n'}">${runVal>=0?'+':''}${fmtAmt(Math.abs(runVal))}</td>
-            <td onclick="event.stopPropagation()" style="white-space:nowrap;">
-              <button class="btn btn-ghost btn-sm btn-icon" onclick="openTxModal('${t.id}')" title="Upravit">✏️</button>
-              <button class="btn btn-ghost btn-sm btn-icon" style="opacity:.4;color:var(--danger);" title="Smazat"
-                onclick="D.transactions=D.transactions.filter(x=>x.id!=='${t.id}');save();renderMain();">🗑</button>
-            </td>
-          </tr>`;}).join('')}</tbody>
-        </table>
-    ${totalPages>1?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;border-top:1px solid var(--border);">
-      <button class="btn btn-ghost btn-sm" onclick="txPage=Math.max(1,txPage-1);renderMain();" ${txPage<=1?'disabled':''}>← Předch.</button>
-      <span style="font-size:13px;color:var(--text2);">Strana <strong>${txPage}</strong> / ${totalPages} · <span style="color:var(--text3);">${totalRows} transakcí</span></span>
-      <button class="btn btn-ghost btn-sm" onclick="txPage=Math.min(${totalPages},txPage+1);renderMain();" ${txPage>=totalPages?'disabled':''}>Další →</button>
+    <div class="card" style="padding:0;">
+      ${rows.length===0?`<div class="empty" style="padding:40px 20px;"><div class="eicon">💸</div><p>Žádné transakce</p><p class="text-muted text-sm">Přidej první transakci tlačítkem nahoře</p></div>`:
+        (()=>{
+          // Group by date
+          const grouped={};
+          pageRows.forEach(t=>{
+            const d=t.date||'unknown';
+            if(!grouped[d])grouped[d]=[];
+            grouped[d].push(t);
+          });
+          return Object.entries(grouped).map(([date,txs])=>{
+            const dayTotal=txs.reduce((s,t)=>s+(t.type==='income'?1:-1)*toCZK(t.amount,t.currency),0);
+            return`<div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px 6px;position:sticky;top:0;background:var(--card);z-index:1;">
+                <span style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;">${fmtDate(date)}</span>
+                <span style="font-size:12px;font-weight:600;color:${dayTotal>=0?'var(--success)':'var(--danger)'};">${dayTotal>=0?'+':''}${fmtAmt(Math.abs(dayTotal))}</span>
+              </div>
+              ${txs.map(t=>{
+                const acc=t.accountId?D.accounts.find(a=>a.id===t.accountId):null;
+                const catIcon=CAT_ICON[t.category]||'📦';
+                const isInc=t.type==='income';
+                const isTr=t.type==='transfer';
+                return`<div onclick="openTxModal('${t.id}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='transparent'">
+                  <div style="width:38px;height:38px;border-radius:12px;background:${isInc?'rgba(16,185,129,.12)':isTr?'rgba(100,116,139,.12)':'rgba(239,68,68,.08)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${catIcon}</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.description||t.category||(isTr?'Převod':'—')}</div>
+                    <div style="font-size:11px;color:var(--text3);margin-top:1px;">${t.category||(isTr?'Převod':'—')}${acc?' · '+acc.name:''}</div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0;">
+                    <div style="font-size:14px;font-weight:700;color:${isInc?'var(--success)':isTr?'var(--text2)':'var(--danger)'};">${isInc?'+':isTr?'':'−'}${fmtAmt(t.amount,t.currency)}</div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>`;
+          }).join('');
+        })()
+      }
+    ${totalPages>1?`<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 16px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost btn-sm" onclick="txPage=Math.max(1,txPage-1);renderMain();" ${txPage<=1?'disabled':''}>←</button>
+      <span style="font-size:12px;color:var(--text2);">${txPage} / ${totalPages}</span>
+      <button class="btn btn-ghost btn-sm" onclick="txPage=Math.min(${totalPages},txPage+1);renderMain();" ${txPage>=totalPages?'disabled':''}>→</button>
     </div>`:''}
-    `}
     </div>`;
 }
 
