@@ -2627,114 +2627,94 @@ function transactions() {
     <div class="page-head">
       <div class="page-title">Transakce</div>
       <div class="flex-c gap-2">
-        <button class="btn btn-ghost btn-sm" onclick="exportTxCSV()">📤 Export CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportTxCSV()">📤 CSV</button>
         <button class="btn btn-primary" onclick="openTxModal()">＋ Přidat</button>
       </div>
     </div>
-    <div class="card mb-3" style="padding:12px 16px;">
-      <div class="flex-b mb-2">
-        <span style="font-size:14px;font-weight:700;">⚡ Rychlé přidání</span>
-        <div class="flex-c gap-1">
-          <button class="btn btn-sm" id="qa-btn-dnes"
-            style="padding:4px 10px;font-size:12px;background:var(--primary);color:#fff;border-radius:6px;"
-            onclick="setQaDate('today')">Dnes</button>
-          <button class="btn btn-ghost btn-sm" id="qa-btn-vcera"
-            style="padding:4px 10px;font-size:12px;"
-            onclick="setQaDate('yesterday')">Včera</button>
-          <input type="date" id="qa-date-input" class="form-input"
-            style="padding:4px 8px;font-size:12px;width:130px;display:none;"
-            onchange="_qaDate=this.value">
-          <button class="btn btn-ghost btn-sm" id="qa-btn-datum"
-            style="padding:4px 8px;font-size:12px;"
-            onclick="setQaDate('custom')">📅</button>
+
+    <!-- Quick add - collapsible -->
+    <details class="card mb-3" style="padding:0;">
+      <summary style="padding:12px 16px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;user-select:none;">
+        <span>⚡ Rychlé přidání</span>
+        <span style="font-size:10px;color:var(--text3);font-weight:400;">více transakcí najednou</span>
+      </summary>
+      <div style="padding:0 16px 14px;">
+        <div class="flex-c gap-1 mb-2">
+          <button class="btn btn-sm" id="qa-btn-dnes" style="padding:4px 10px;font-size:12px;background:var(--primary);color:#fff;border-radius:6px;" onclick="setQaDate('today')">Dnes</button>
+          <button class="btn btn-ghost btn-sm" id="qa-btn-vcera" style="padding:4px 10px;font-size:12px;" onclick="setQaDate('yesterday')">Včera</button>
+          <input type="date" id="qa-date-input" class="form-input" style="padding:4px 8px;font-size:12px;width:130px;display:none;" onchange="_qaDate=this.value">
+          <button class="btn btn-ghost btn-sm" id="qa-btn-datum" style="padding:4px 8px;font-size:12px;" onclick="setQaDate('custom')">📅</button>
         </div>
-      </div>
-      <textarea id="quick-add-input" rows="3"
-        placeholder="Kaufland 450&#10;Pizza Roma 380&#10;Benzin 800&#10;&#10;Jeden řádek = jedna transakce. Napiš popis a částku."
-        style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;
-          font-size:13px;background:var(--surface);color:var(--text);resize:vertical;
-          font-family:inherit;line-height:1.6;"
-        onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();quickAddTx();}"></textarea>
-      <div style="margin-top:10px;">
-        <div class="flex-c gap-1 mb-1" style="flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--text3);padding:3px 4px;white-space:nowrap;">Kategorie:</span>
-          ${allExpenseCats().slice(0,8).map((c,i)=>{
+        <textarea id="quick-add-input" rows="3" placeholder="Kaufland 450&#10;Pizza Roma 380&#10;Benzin 800" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;line-height:1.6;" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();quickAddTx();}"></textarea>
+        <div class="flex-c gap-1 mt-2 mb-1" style="flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--text3);">Kat:</span>
+          ${allExpenseCats().slice(0,6).map((c,i)=>{
             const active=_qaCat===c;
             const esc=c.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-            return`<button id="qa-cat-${i}" class="btn btn-sm" data-cat="${esc}" style="font-size:11px;padding:3px 8px;${active?'background:var(--primary);color:#fff;border-color:var(--primary);':''}"
-              onclick="setQaCat(this.dataset.cat)">${CAT_ICON[c]||'📦'} ${c}</button>`;
+            return`<button id="qa-cat-${i}" class="btn btn-sm" data-cat="${esc}" style="font-size:10px;padding:2px 7px;${active?'background:var(--primary);color:#fff;border-color:var(--primary);':''}" onclick="setQaCat(this.dataset.cat)">${CAT_ICON[c]||''} ${c}</button>`;
           }).join('')}
-          <button onclick="openCatPickerModal()" style="background:none;border:1px dashed var(--border);border-radius:20px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--text3);">Všechny ${_qaCat?'('+_qaCat+')':'…'}</button>
+          <button onclick="openCatPickerModal()" style="background:none;border:1px dashed var(--border);border-radius:20px;padding:2px 8px;font-size:10px;cursor:pointer;color:var(--text3);">Vše…</button>
         </div>
+        ${D.accounts.filter(a=>!a.isLiability).length>0?`<div class="flex-c gap-1 mb-2" style="flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--text3);">Účet:</span>
+          ${D.accounts.filter(a=>!a.isLiability).map(a=>{
+            const active=_qaAcc===a.id;
+            return`<button id="qa-acc-${a.id}" class="btn btn-sm" style="font-size:10px;padding:2px 7px;${active?'background:var(--primary);color:#fff;border-color:var(--primary);':''}" onclick="setQaAcc('${a.id}')">${a.name}</button>`;
+          }).join('')}
+        </div>`:''}
+        ${(D.settings.favTxs||[]).length>0?`<div class="flex-c gap-1 mb-2" style="flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--text3);">★</span>
+          ${(D.settings.favTxs||[]).map(f=>`
+            <span style="display:inline-flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;">
+              <button onclick="applyFav('${f.id}')" style="background:none;border:none;cursor:pointer;padding:3px 8px;color:var(--text);">${CAT_ICON[f.category]||''} ${f.name} ${fmtAmt(f.amount)}</button>
+              <button onclick="delFav('${f.id}')" style="background:none;border:none;cursor:pointer;padding:3px 5px 3px 0;color:var(--text3);font-size:12px;">×</button>
+            </span>`).join('')}
+        </div>`:''}
+        <div class="flex-b">
+          <button class="btn btn-ghost btn-sm" onclick="saveFav()" style="font-size:10px;padding:3px 8px;">★ Uložit oblíbené</button>
+          <button class="btn btn-primary btn-sm" onclick="quickAddTx()">＋ Přidat</button>
+        </div>
+        <div id="qa-feedback" style="display:none;margin-top:8px;font-size:12px;font-weight:600;"></div>
+      </div>
+    </details>
+
+    <!-- Filters - compact bar -->
+    <div class="card mb-3" style="padding:10px 14px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <div class="flex-c gap-1" style="flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--text3);padding:3px 4px;white-space:nowrap;">Účet:</span>
-          ${D.accounts.filter(a=>!a.isLiability).length>0
-            ? D.accounts.filter(a=>!a.isLiability).map(a=>{
-                const active=_qaAcc===a.id;
-                return`<button id="qa-acc-${a.id}" class="btn btn-sm" style="font-size:11px;padding:3px 8px;${active?'background:var(--primary);color:#fff;border-color:var(--primary);':''}"
-                  onclick="setQaAcc('${a.id}')">${a.name}</button>`;
-              }).join('')
-            : `<span style="font-size:11px;color:var(--text3);">žádné účty — <a href="#" onclick="goto('accounts');return false;" style="color:var(--primary);">přidat účet →</a></span>`
-          }
+          <span class="chip ${txF.type==='all'?'active':''}" onclick="setTxF('type','all')">Vše</span>
+          <span class="chip ${txF.type==='income'?'active':''}" onclick="setTxF('type','income')">📈 Příjmy</span>
+          <span class="chip ${txF.type==='expense'?'active':''}" onclick="setTxF('type','expense')">📉 Výdaje</span>
+          <span class="chip ${txF.type==='transfer'?'active':''}" onclick="setTxF('type','transfer')">↔ Převody</span>
         </div>
+        <div style="width:1px;height:20px;background:var(--border);"></div>
+        <div class="flex-c gap-1" style="flex-wrap:wrap;">
+          <span class="chip ${txF.week==='this'?'active':''}" onclick="setTxF('week',txF.week==='this'?null:'this');if(txF.week)txF.month='';">Tento týden</span>
+          <span class="chip ${txF.week==='last'?'active':''}" onclick="setTxF('week',txF.week==='last'?null:'last');if(txF.week)txF.month='';">Min. týden</span>
+          <select class="form-input" style="width:auto;padding:4px 8px;font-size:11px;border-radius:16px;" onchange="txF.week=null;setTxF('month',this.value)">
+            <option value="">Vše</option>
+            ${months.map(m=>`<option value="${m}" ${!txF.week&&txF.month===m?'selected':''}>${fmtMonth(m)}</option>`).join('')}
+          </select>
+        </div>
+        ${D.accounts.filter(a=>!a.isLiability).length>1?`
+          <div style="width:1px;height:20px;background:var(--border);"></div>
+          <select class="form-input" style="width:auto;padding:4px 8px;font-size:11px;border-radius:16px;" onchange="txF.accountId=this.value||null;txPage=1;renderMain();">
+            <option value="">Všechny účty</option>
+            ${D.accounts.filter(a=>!a.isLiability).map(a=>`<option value="${a.id}" ${txF.accountId===a.id?'selected':''}>${a.name}</option>`).join('')}
+          </select>
+        `:''}
       </div>
-      ${(D.settings.favTxs||[]).length>0?`
-      <div class="flex-c gap-1 mt-2" style="flex-wrap:wrap;align-items:center;">
-        <span style="font-size:11px;color:var(--text3);padding:3px 4px;white-space:nowrap;">★ Oblíbené:</span>
-        ${(D.settings.favTxs||[]).map(f=>`
-          <span style="display:inline-flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;">
-            <button onclick="applyFav('${f.id}')" style="background:none;border:none;cursor:pointer;padding:3px 9px;color:var(--text);" title="Přidat">${CAT_ICON[f.category]||'📦'} ${f.name} ${fmtAmt(f.amount)}</button>
-            <button onclick="delFav('${f.id}')" style="background:none;border:none;cursor:pointer;padding:3px 7px 3px 0;color:var(--text3);font-size:13px;" title="Smazat oblíbenou">×</button>
-          </span>`).join('')}
-      </div>`:''}
-      <div class="flex-b mt-2">
-        <button class="btn btn-ghost btn-sm" onclick="saveFav()" style="font-size:11px;padding:4px 10px;" title="Uložit první řádek jako oblíbenou šablonu">★ Uložit jako oblíbené</button>
-        <button class="btn btn-primary" onclick="quickAddTx()" style="align-self:flex-end;">
-          ＋ Přidat <span style="font-size:10px;opacity:.7;">(Ctrl+Enter)</span>
-        </button>
+      <div style="margin-top:8px;position:relative;">
+        <input id="tx-search-inp" type="text" class="form-input" placeholder="🔍 Hledat…" value="${txF.search||''}" style="padding:7px 12px;font-size:12px;" oninput="onTxSearch(this.value)">
+        ${txF.search?`<button onclick="txF.search='';renderMain()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;">×</button>`:''}
       </div>
-      <div id="qa-feedback" style="display:none;margin-top:8px;font-size:12px;font-weight:600;"></div>
-    </div>
-    <div class="card mb-3" style="padding:14px 16px 12px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">＋ Přidat transakci</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="openTxModal(null,'expense')" style="flex:1;min-width:120px;padding:11px 10px;font-size:14px;font-weight:700;">📉 Výdaj</button>
-        <button class="btn btn-primary" onclick="openTxModal(null,'income')" style="flex:1;min-width:120px;padding:11px 10px;font-size:14px;font-weight:700;background:#10b981;border-color:#10b981;">📈 Příjem</button>
-        <button class="btn btn-ghost" onclick="openTxModal(null,'transfer')" style="flex:1;min-width:120px;padding:11px 10px;font-size:14px;font-weight:700;">↔ Převod</button>
-      </div>
-    </div>
-    ${D.accounts.filter(a=>!a.isLiability).length>1?`
-    <div class="flex-c gap-1 mb-2" style="flex-wrap:wrap;">
-      <span style="font-size:11px;color:var(--text3);padding:3px 4px;white-space:nowrap;">Účet:</span>
-      <span class="chip ${!txF.accountId?'active':''}" onclick="txF.accountId=null;txPage=1;renderMain();">Všechny</span>
-      ${D.accounts.filter(a=>!a.isLiability).map(a=>`
-        <span class="chip ${txF.accountId===a.id?'active':''}" onclick="txF.accountId='${a.id}';txPage=1;renderMain();">${a.icon||''} ${a.name}</span>`).join('')}
-    </div>`:''}
-    <div class="flex-c gap-2 mb-2" style="flex-wrap:wrap;">
-      <span class="chip ${txF.type==='all'?'active':''}" onclick="setTxF('type','all')">Vše</span>
-      <span class="chip ${txF.type==='income'?'active':''}" onclick="setTxF('type','income')">📈 Příjmy</span>
-      <span class="chip ${txF.type==='expense'?'active':''}" onclick="setTxF('type','expense')">📉 Výdaje</span>
-      <span class="chip ${txF.type==='transfer'?'active':''}" onclick="setTxF('type','transfer')">↔ Převody</span>
-      <div style="flex:1;"></div>
-      <span class="chip ${txF.week==='this'?'active':''}" onclick="setTxF('week',txF.week==='this'?null:'this');if(txF.week)txF.month='';">📅 Tento týden</span>
-      <span class="chip ${txF.week==='last'?'active':''}" onclick="setTxF('week',txF.week==='last'?null:'last');if(txF.week)txF.month='';">Minulý týden</span>
-      <select class="form-input" style="width:auto;padding:5px 10px;font-size:12px;" onchange="txF.week=null;setTxF('month',this.value)">
-        <option value="">Všechny měsíce</option>
-        ${months.map(m=>`<option value="${m}" ${!txF.week&&txF.month===m?'selected':''}>${fmtMonth(m)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="mb-3" style="position:relative;">
-      <input id="tx-search-inp" type="text" class="form-input" placeholder="🔍  Hledat popis, kategorii, částku…"
-        value="${txF.search||''}"
-        style="padding-left:12px;font-size:13px;"
-        oninput="onTxSearch(this.value)">
-      ${txF.search?`<button onclick="txF.search='';renderMain()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;">×</button>`:''}
     </div>
     ${rows.length>0?`
-    <div class="flex-c gap-3 mb-2 text-sm" style="flex-wrap:wrap;">
-      <span>Příjmy: <strong class="amount-p">${fmtAmt(incT)}</strong></span>
-      <span>Výdaje: <strong class="amount-n">${fmtAmt(expT)}</strong></span>
-      <span>Bilance: <strong class="${incT-expT>=0?'amount-p':'amount-n'}">${fmtAmt(incT-expT)}</strong></span>
+    <div style="display:flex;gap:16px;margin-bottom:12px;padding:10px 14px;background:var(--surface2);border-radius:10px;font-size:12px;">
+      <div><span style="color:var(--text3);">Příjmy</span> <strong class="amount-p">${fmtAmt(incT)}</strong></div>
+      <div><span style="color:var(--text3);">Výdaje</span> <strong class="amount-n">${fmtAmt(expT)}</strong></div>
+      <div><span style="color:var(--text3);">Bilance</span> <strong class="${incT-expT>=0?'amount-p':'amount-n'}">${fmtAmt(incT-expT)}</strong></div>
+      <div style="margin-left:auto;color:var(--text3);">${totalRows} záznamů</div>
     </div>
     ${(()=>{
       const expRows=rows.filter(t=>t.type==='expense');
