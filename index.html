@@ -404,8 +404,14 @@ select.form-input:focus, textarea.form-input:focus { border-color: var(--primary
 @media (max-width: 1100px) { [style*="grid-template-columns:repeat(5,1fr)"] { grid-template-columns: repeat(3,1fr) !important; } }
 @media (max-width: 900px) { .g4 { grid-template-columns: 1fr 1fr; } .summary-bar { grid-template-columns: 1fr 1fr; } [style*="grid-template-columns:repeat(5,1fr)"] { grid-template-columns: repeat(3,1fr) !important; } }
 @media (max-width: 700px) {
-  .sidebar { width: 62px; }
+  .sidebar { width: 62px; overflow-x: hidden; }
   .sidebar .nav-item span:last-child, .nav-section-label, .sidebar-logo-text { display: none; }
+  .sidebar .theme-btn span:last-child { display: none; }
+  .sidebar .theme-btn { justify-content: center; padding: 8px; }
+  .sidebar #sync-status span.sidebar-logo-text { display: none; }
+  .sidebar #sync-status { justify-content: center; }
+  .sidebar .drag-handle { display: none; }
+  .sidebar-bottom { padding: 8px 6px; }
   .main { margin-left: 62px; padding: 16px; }
   .g2,.g3,.g4 { grid-template-columns: 1fr; }
   [style*="grid-template-columns:repeat(5,1fr)"] { grid-template-columns: 1fr 1fr !important; }
@@ -592,12 +598,21 @@ select.form-input:focus, textarea.form-input:focus { border-color: var(--primary
   .vision-grid { grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); }
   table { font-size: 12px; }
   th, td { padding: 6px 8px; }
+  /* Dashboard KPI responsive */
+  [style*="grid-template-columns:2fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
+  [style*="grid-template-columns:repeat(3,1fr)"] { grid-template-columns: 1fr 1fr !important; }
+  /* Dashboard progress 2-col to 1-col */
+  .card [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
 }
 @media (max-width: 480px) {
   .main { padding: 10px !important; padding-top: 48px !important; }
   .g4 { grid-template-columns: 1fr !important; }
   [style*="grid-template-columns:repeat(5,1fr)"] { grid-template-columns: 1fr 1fr !important; }
   [style*="grid-template-columns:repeat(4,1fr)"] { grid-template-columns: 1fr 1fr !important; }
+  [style*="grid-template-columns:2fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
+  [style*="grid-template-columns:repeat(3,1fr)"] { grid-template-columns: 1fr !important; }
+  [style*="grid-template-columns:repeat(auto-fit"] { grid-template-columns: 1fr 1fr !important; }
+  .card [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
   .page-title { font-size: 16px; }
   .section-title { font-size: 13px; }
   .btn { padding: 7px 12px; font-size: 12px; }
@@ -619,6 +634,12 @@ select.form-input:focus, textarea.form-input:focus { border-color: var(--primary
   .tab-bar { gap: 0; flex-wrap: wrap; }
   .tab-bar .tab { font-size: 11px; padding: 6px 10px; }
   .sparkline { max-width: 100%; }
+  /* Fix button wrapping */
+  .flex-c { flex-wrap: wrap; }
+  .page-head .flex-c { gap: 6px; }
+  /* Summary bars stacking */
+  .summary-bar { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .fr.fr2 { grid-template-columns: 1fr !important; }
 }
 @media (max-width: 360px) {
   [style*="grid-template-columns:repeat(5,1fr)"] { grid-template-columns: 1fr !important; }
@@ -1465,46 +1486,34 @@ function dashboard() {
       '<span class="dash-drag-handle" title="Přetáhnout sekci">⠿</span>'+html+'</div>';
   };
   const _sKPI = `
-    <div class="g4 mb-4" style="grid-template-columns:repeat(5,1fr);">
-      <div class="card dash-kpi">
-        <div class="dash-kpi-label">Čistá hodnota</div>
-        <div class="dash-kpi-val ${nw>=0?'pos':'neg'}">${fmtAmt(nw)}</div>
-        ${nwDiff!=null?`<div class="dash-kpi-sub ${nwDiff>=0?'pos':'neg'}">${nwDiff>=0?'↑ +':'↓ '}${fmtAmt(nwDiff)} vs. minulý snapshot</div>`:''}
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+      <div class="card" style="padding:20px 24px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border:none;">
+        <div style="font-size:12px;opacity:.7;margin-bottom:4px;">Čistá hodnota</div>
+        <div style="font-size:32px;font-weight:800;line-height:1.2;">${fmtAmt(nw)}</div>
+        ${nwDiff!=null?`<div style="font-size:12px;margin-top:6px;opacity:.85;">${nwDiff>=0?'▲ +':'▼ '}${fmtAmt(nwDiff)} vs. minulý měsíc</div>`:''}
       </div>
-      <div class="card dash-kpi">
-        <div class="dash-kpi-label">Příjmy tento měsíc</div>
-        <div class="dash-kpi-val pos">${fmtAmt(iTot)}</div>
-        <div class="dash-kpi-sub ${incMoM!=null?(incMoM>=0?'pos':'neg'):'text-muted'}">
-          ${incMoM!=null?(incMoM>=0?'↑ +':'↓ ')+incMoM+'% vs. minulý měsíc':iPct+'% přijato'}
-        </div>
+      <div class="card" style="padding:16px 20px;cursor:pointer;" onclick="goto('income')">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Příjmy</div>
+        <div style="font-size:22px;font-weight:800;color:var(--success);">${fmtAmt(iTot)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">${iPct}% přijato${incMoM!=null?` · ${incMoM>=0?'+':''}${incMoM}% MoM`:''}</div>
       </div>
-      <div class="card dash-kpi">
-        <div class="dash-kpi-label">Výdaje tento měsíc</div>
-        <div class="dash-kpi-val neg">${fmtAmt(tot)}</div>
-        <div class="dash-kpi-sub ${expMoM!=null?(expMoM<=0?'pos':'neg'):'text-muted'}">
-          ${expMoM!=null?(expMoM>=0?'↑ +':'↓ ')+expMoM+'% vs. minulý měsíc':paidPct+'% zaplaceno'}
-        </div>
+      <div class="card" style="padding:16px 20px;cursor:pointer;" onclick="goto('monthly')">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Výdaje</div>
+        <div style="font-size:22px;font-weight:800;color:var(--danger);">${fmtAmt(tot)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">${paidPct}% zaplaceno${expMoM!=null?` · ${expMoM>=0?'+':''}${expMoM}% MoM`:''}</div>
       </div>
-      <div class="card dash-kpi">
-        <div class="dash-kpi-label">Cash flow / míra úspor</div>
-        <div class="dash-kpi-val ${cf>=0?'pos':'neg'}">${cf>=0?'+':''}${fmtAmt(cf)}</div>
-        <div class="dash-kpi-sub ${savRate!=null?(savRate>=20?'pos':savRate>=0?'warn':'neg'):'text-muted'}">
-          ${savRate!=null?'úspory: '+savRate+'% příjmů':'příjmy − výdaje'}
-        </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+      <div class="card" style="padding:14px 18px;text-align:center;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px;">Cash Flow</div>
+        <div style="font-size:20px;font-weight:800;color:${cf>=0?'var(--success)':'var(--danger)'};">${cf>=0?'+':''}${fmtAmt(cf)}</div>
+        ${savRate!=null?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">úspory ${savRate}%</div>`:''}
       </div>
-      ${(()=>{
-        const savTotal=totalSavings();
-        const savGoals=D.goals.filter(g=>g.linkedAccountId);
-        const totalGoalTarget=savGoals.reduce((s,g)=>s+toCZK(g.target,g.currency),0);
-        const savPct=totalGoalTarget>0?Math.min(Math.round(savTotal/totalGoalTarget*100),100):null;
-        return `<div class="card dash-kpi" style="cursor:pointer;" onclick="goto('goals')">
-          <div class="dash-kpi-label">💰 Úspory celkem</div>
-          <div class="dash-kpi-val pos">${fmtAmt(savTotal)}</div>
-          <div class="dash-kpi-sub ${savPct!=null?(savPct>=80?'pos':savPct>=40?'warn':'neg'):'text-muted'}">
-            ${savPct!=null?savPct+'% z cílů':'na spořicích účtech'}
-          </div>
-        </div>`;
-      })()}
+      <div class="card" style="padding:14px 18px;text-align:center;cursor:pointer;" onclick="goto('goals')">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px;">Úspory</div>
+        <div style="font-size:20px;font-weight:800;color:var(--success);">${fmtAmt(totalSavings())}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;">na spořicích účtech</div>
+      </div>
       ${(()=>{
         const yr2=String(new Date().getFullYear());
         const tInc=D.transactions.filter(t=>t.type==='income'&&t.date&&t.date.startsWith(yr2)).reduce((s,t)=>s+toCZK(t.amount,t.currency),0);
@@ -1513,11 +1522,15 @@ function dashboard() {
         const expPct2=_taxExpPct||60;
         const taxBase2=Math.max(0,totalRev2*(1-expPct2/100));
         const estTax=Math.max(0,Math.round(taxBase2*0.15-30840)+Math.round(taxBase2*0.5*0.292)+Math.round(taxBase2*0.5*0.135));
-        return totalRev2>0?`<div class="card dash-kpi" style="cursor:pointer;" onclick="goto('taxes')">
-          <div class="dash-kpi-label">🧾 Odhad daní ${yr2}</div>
-          <div class="dash-kpi-val neg">${fmtAmt(Math.round(estTax))}</div>
-          <div class="dash-kpi-sub text-muted">z příjmu ${fmtAmt(Math.round(totalRev2))}</div>
-        </div>`:'';
+        return totalRev2>0?`<div class="card" style="padding:14px 18px;text-align:center;cursor:pointer;" onclick="goto('taxes')">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px;">Odhad daní ${yr2}</div>
+          <div style="font-size:20px;font-weight:800;color:var(--danger);">${fmtAmt(Math.round(estTax))}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">z ${fmtAmt(Math.round(totalRev2))}</div>
+        </div>`:`<div class="card" style="padding:14px 18px;text-align:center;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px;">Zbývá zaplatit</div>
+          <div style="font-size:20px;font-weight:800;color:${rem>0?'var(--warning)':'var(--success)'};">${fmtAmt(rem)}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;">z ${fmtAmt(tot)}</div>
+        </div>`;
       })()}
     </div>
     ${renderForecast()}
@@ -1544,32 +1557,32 @@ function dashboard() {
       </div>
     </div>
   `;
-  const _sProgress = `
-    <div class="g2 mb-4">
-      <div class="card dash-prog" style="cursor:pointer;" onclick="goto('monthly')">
-        <div class="dash-prog-head">
-          <span class="dash-prog-title">📋 Měsíční výdaje</span>
-          <span class="dash-prog-vals">${paidPct}% · ${fmtAmt(paid)} / ${fmtAmt(tot)}</span>
+  const _sProgress = (tot>0||iTot>0)?`
+    <div class="card mb-4" style="padding:18px 22px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+        <div style="cursor:pointer;" onclick="goto('monthly')">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+            <span style="font-size:13px;font-weight:700;">📋 Výdaje</span>
+            <span style="font-size:12px;color:var(--text3);">${fmtAmt(paid)} / ${fmtAmt(tot)}</span>
+          </div>
+          <div style="height:8px;background:var(--surface2);border-radius:100px;overflow:hidden;">
+            <div style="height:100%;width:${paidPct}%;background:${expBarCol};border-radius:100px;transition:width .3s;"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:5px;">${paidPct}% zaplaceno · ${fmtAmt(rem)} zbývá</div>
         </div>
-        <div class="dash-prog-bar"><div class="dash-prog-fill" style="width:${paidPct}%;background:${expBarCol};"></div></div>
-        <div class="dash-prog-stats">
-          <span class="pos">✓ ${fmtAmt(paid)} zaplaceno</span>
-          <span class="${rem>0?'neg':'pos'}">◎ ${fmtAmt(rem)} zbývá</span>
-        </div>
-      </div>
-      <div class="card dash-prog" style="cursor:pointer;" onclick="goto('income')">
-        <div class="dash-prog-head">
-          <span class="dash-prog-title">💰 Příjmy</span>
-          <span class="dash-prog-vals">${iPct}% · ${fmtAmt(iRecv)} / ${fmtAmt(iTot)}</span>
-        </div>
-        <div class="dash-prog-bar"><div class="dash-prog-fill" style="width:${iPct}%;background:${iPct>=100?'var(--success)':'var(--primary)'};"></div></div>
-        <div class="dash-prog-stats">
-          <span class="pos">✓ ${fmtAmt(iRecv)} přijato</span>
-          <span class="text-muted">◎ ${fmtAmt(iRem)} čeká</span>
+        <div style="cursor:pointer;" onclick="goto('income')">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+            <span style="font-size:13px;font-weight:700;">💰 Příjmy</span>
+            <span style="font-size:12px;color:var(--text3);">${fmtAmt(iRecv)} / ${fmtAmt(iTot)}</span>
+          </div>
+          <div style="height:8px;background:var(--surface2);border-radius:100px;overflow:hidden;">
+            <div style="height:100%;width:${iPct}%;background:${iPct>=100?'var(--success)':'var(--primary)'};border-radius:100px;transition:width .3s;"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:5px;">${iPct}% přijato · ${fmtAmt(iRem)} čeká</div>
         </div>
       </div>
     </div>
-  `;
+  `:'';
   const _sUpcoming = upcoming.length>0?`
     <div class="card mb-4" style="padding:0;">
       <div class="section-head" style="padding:12px 16px 10px;">
@@ -1785,11 +1798,6 @@ function dashboard() {
       </div>`;
     })()}
     ${_dsBody}
-    ${typeof dashboardExtras==='function'?dashboardExtras():''}
-    ${typeof financeInsights==='function'?financeInsights():''}
-    ${typeof financialHealth==='function'?financialHealth():''}
-    ${typeof financeDashboardExtras==='function'?financeDashboardExtras():''}
-    ${typeof financeCharts==='function'?financeCharts():''}
   `;
 }
 
