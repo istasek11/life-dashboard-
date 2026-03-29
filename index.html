@@ -1380,7 +1380,7 @@ function renderMain() {
 // ═══════════════════════════════════════════════════
 // DASHBOARD DRAG-AND-DROP
 // ═══════════════════════════════════════════════════
-const DASH_SECTION_ORDER = ['kpi','taxforecast','health','progress','chart','donut','ytd','upcoming','accounts'];
+const DASH_SECTION_ORDER = ['kpi','savingsring','taxforecast','health','progress','chart','donut','ytd','upcoming','accounts'];
 let _dashDragSrc = null;
 
 function getDashOrder() {
@@ -1711,13 +1711,59 @@ function dashboard() {
   const _sChart = dashMonthlyChart();
   const _sDonut = renderExpenseDonut(cm);
   const _sHealth = renderHealthScore(cm);
+  // Savings rate ring
+  const _sSavings = (()=>{
+    if(iTot<=0) return '';
+    const sr=Math.max(0,Math.min(100,Math.round(cf/iTot*100)));
+    const srColor=sr>=20?'var(--success)':sr>=10?'var(--warning)':'var(--danger)';
+    const r=42,circ=2*Math.PI*r;
+    const dash=circ*(sr/100);
+    const ytdSavings=ytdInc-ytdExp;
+    const annualSavings=Math.round(cf*12);
+    return `<div class="card mb-4">
+      <div class="flex-b mb-3"><div class="section-title">💰 Míra úspor</div><span class="chip" onclick="goto('report')">Detail →</span></div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center;">
+        <div style="position:relative;width:110px;height:110px;flex-shrink:0;">
+          <svg width="110" height="110" style="transform:rotate(-90deg);">
+            <circle cx="55" cy="55" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="12"/>
+            <circle cx="55" cy="55" r="${r}" fill="none" stroke="${srColor}" stroke-width="12"
+              stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
+              stroke-linecap="round" style="transition:stroke-dasharray .6s;"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="font-size:22px;font-weight:800;color:${srColor};">${sr}%</div>
+            <div style="font-size:9px;color:var(--text3);letter-spacing:.04em;">ÚSPORY</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;">
+            <span style="color:var(--text3);">Měsíční příjem</span><strong class="pos">${fmtAmt(iTot)}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;">
+            <span style="color:var(--text3);">Měsíční výdaje</span><strong class="neg">${fmtAmt(tot)}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;border-top:1px solid var(--border);padding-top:8px;">
+            <span style="color:var(--text3);">Zbývá měsíčně</span><strong style="color:${cf>=0?'var(--success)':'var(--danger)'};">${cf>=0?'+':''}${fmtAmt(cf)}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;">
+            <span style="color:var(--text3);">Roční odhad úspor</span><span style="color:${annualSavings>=0?'var(--success)':'var(--danger)'};">${annualSavings>=0?'+':''}${fmtAmt(annualSavings)}</span>
+          </div>
+          ${ytdSavings!==0?`<div style="display:flex;justify-content:space-between;font-size:12px;">
+            <span style="color:var(--text3);">Skutečné YTD</span><span style="color:${ytdSavings>=0?'var(--success)':'var(--danger)'};">${ytdSavings>=0?'+':''}${fmtAmt(ytdSavings)}</span>
+          </div>`:''}
+        </div>
+      </div>
+    </div>`;
+  })();
   // Tax & Financial Prediction
   const _sTaxForecast = (()=>{
     const yr3=String(new Date().getFullYear());
     const monthNow=new Date().getMonth()+1; // 1-12
     const tInc3=D.transactions.filter(t=>t.type==='income'&&t.date&&t.date.startsWith(yr3)).reduce((s,t)=>s+toCZK(t.amount,t.currency),0);
     const bRev3=(D.bizOrders||[]).filter(o=>o.date&&o.date.startsWith(yr3)).reduce((s,o)=>s+toCZK(o.revenue||0,o.currency),0);
-    const ytdRev=tInc3+bRev3;
+    // Also include recurring income YTD (expected, not just received transactions)
+    const recInc3=ytdMonths().reduce((s,m)=>s+incTotal(m),0);
+    const ytdRev=Math.max(tInc3+bRev3, recInc3);
     if(ytdRev<=0) return '';
     const projectedAnnual=Math.round(ytdRev/monthNow*12);
     const expPct3=_taxExpPct||60;
@@ -1778,7 +1824,7 @@ function dashboard() {
     </div>`;
   })();
 
-  const _sMap = {'kpi':_sKPI,'taxforecast':_sTaxForecast,'health':_sHealth,'ytd':_sYTD,'progress':_sProgress,'upcoming':_sUpcoming,'accounts':_sAccounts,'chart':_sChart,'donut':_sDonut};
+  const _sMap = {'kpi':_sKPI,'savingsring':_sSavings,'taxforecast':_sTaxForecast,'health':_sHealth,'ytd':_sYTD,'progress':_sProgress,'upcoming':_sUpcoming,'accounts':_sAccounts,'chart':_sChart,'donut':_sDonut};
   const _dsOrder = getDashOrder();
   const _dsBody = _dsOrder.map(id=>_dashWrap(id,_sMap[id])).join('');
 
@@ -2193,6 +2239,7 @@ function expRow(e, cm) {
           ${e.dueDay&&!skipped?`<span class="due-badge ${isOverdue?'due-over':isDueToday?'due-today':''}">${e.dueDay}.</span>`:''}
           ${freqBadge}
           ${e.autoRepeat&&!freqBadge?`<span class="exp-auto-badge">🔄</span>`:''}
+          ${e.linkedDebtId?`<span class="exp-auto-badge" style="background:#6366f120;color:#6366f1;" title="Automaticky z dluhu">🔗 dluh</span>`:''}
         </div>
         ${(e.paymentMethod||e.note)&&!skipped?`<div class="exp-meta">
           ${e.paymentMethod?`<span class="exp-pm" title="${pmLabel}">${pmIcon} ${pmLabel}</span>`:''}
@@ -5204,6 +5251,27 @@ function saveAcc(){
   };
   if(editId){const i=D.accounts.findIndex(a=>a.id===editId);if(i>=0)D.accounts[i]=acc;}
   else D.accounts.push(acc);
+  // Auto-sync: if liability with monthly payment, create/update linked recurring expense
+  if(acc.isLiability && acc.monthlyPayment > 0) {
+    const existing = D.recurringExpenses.find(e=>e.linkedDebtId===acc.id);
+    if(existing) {
+      existing.name = acc.name + ' — splátka';
+      existing.amount = acc.monthlyPayment;
+      existing.currency = acc.currency;
+    } else {
+      D.recurringExpenses.push({
+        id: uid(), name: acc.name + ' — splátka',
+        groupId: null, amount: acc.monthlyPayment, currency: acc.currency,
+        autoRepeat: true, repeatEvery: 1,
+        createdMonth: curMonth(),
+        linkedDebtId: acc.id,
+        note: 'Automaticky z dluhu'
+      });
+    }
+  } else if(acc.isLiability) {
+    // Payment removed → remove linked expense
+    D.recurringExpenses = D.recurringExpenses.filter(e=>e.linkedDebtId!==acc.id);
+  }
   save();closeModal();renderMain();
 }
 function delAcc(id){
@@ -5212,6 +5280,8 @@ function delAcc(id){
   const hist=Object.fromEntries(Object.entries(D.accountHistory||{}).filter(([k])=>k.startsWith(id+'|')));
   D.accounts=D.accounts.filter(a=>a.id!==id);
   Object.keys(D.accountHistory||{}).forEach(k=>{if(k.startsWith(id+'|'))delete D.accountHistory[k];});
+  // Remove linked recurring expense if any
+  D.recurringExpenses = D.recurringExpenses.filter(e=>e.linkedDebtId!==id);
   save(); renderMain();
   if(acc) pushUndo(`Účet „${acc.name}"`, ()=>{
     D.accounts.push(acc);
