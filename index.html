@@ -15883,6 +15883,12 @@ function _unlockApp(){
 }
 function init(){
   importGiuliettaHistory();
+  // Persist fix: ensure linked debt expenses have a valid createdMonth (not null/legacy)
+  const _fixMonth=(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth()+1,1).toISOString().slice(0,7);})();
+  const _curM=(()=>{return new Date().toISOString().slice(0,7);})();
+  let _needSave=false;
+  (D.recurringExpenses||[]).filter(e=>e.linkedDebtId&&(!e.createdMonth||e.createdMonth<=_curM)).forEach(e=>{e.createdMonth=_fixMonth;_needSave=true;});
+  if(_needSave) save();
   applyTheme(D.settings.theme||'light');renderNav();renderMain();_injectFinChat();
   _setSyncStatus('ok','Připojeno ☁️');
   // PWA
