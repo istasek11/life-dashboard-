@@ -15754,11 +15754,11 @@ function _unlockApp(){
   fetch('https://api.jsonbin.io/v3/b/'+_CLOUD_BIN_ID+'/latest',{
     headers:{'X-Master-Key':_CLOUD_API_KEY}
   }).then(r=>r.json()).then(res=>{
-    if(res.record&&res.record.transactions&&res.record.transactions.length>0){
-      const local=D.transactions?D.transactions.length:0;
-      const cloud=res.record.transactions.length;
-      // Use whichever has more data, or cloud if equal
-      if(cloud>=local){
+    if(res.record&&res.record.settings){
+      // Compare total data size - use whichever has more
+      const localSize=JSON.stringify(D).length;
+      const cloudSize=JSON.stringify(res.record).length;
+      if(cloudSize>localSize||cloudSize>500){
         D=res.record;
         if(!D.settings) D.settings={};
         D.settings.cloudKey=_CLOUD_API_KEY;
