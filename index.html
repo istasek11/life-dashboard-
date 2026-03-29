@@ -5078,18 +5078,18 @@ function openAccModal(isLiab=false, editId=null) {
     </div>
     <div class="form-group">
       <label class="form-label">Typ</label>
-      <select class="form-input" id="a-type" onchange="(()=>{
+      <select class="form-input" id="a-type" onchange="(function(sel){
         const i=document.getElementById('a-icon');
-        if(!i.value.trim()){i.value=ACC_TYPE_ICON[this.value]||'';}
+        if(!i.value.trim()){i.value=ACC_TYPE_ICON[sel.value]||'';}
         const invTypes=INV_TYPES;
         const w=document.getElementById('a-basis-wrap');
-        if(w) w.style.display=invTypes.includes(this.value)?'block':'none';
+        if(w) w.style.display=invTypes.includes(sel.value)?'block':'none';
         const cc=document.getElementById('a-cc-fields');
-        if(cc) cc.style.display=this.value==='Kreditní karta'?'block':'none';
+        if(cc) cc.style.display=sel.value==='Kreditní karta'?'block':'none';
         const bl=document.getElementById('a-bal-label');
         const isL=document.getElementById('a-liab')&&document.getElementById('a-liab').value==='true';
-        if(bl){if(isL) bl.textContent=this.value==='Kreditní karta'?'Zbývající kredit (kolik máš k dispozici)':'Zbývající dluh'; else bl.textContent='Aktuální zůstatek';}
-      })()">
+        if(bl){if(isL) bl.textContent=sel.value==='Kreditní karta'?'Zbývající kredit (kolik máš k dispozici)':'Zbývající dluh'; else bl.textContent='Aktuální zůstatek';}
+      })(this)">
         ${types.map(t=>`<option value="${t}" ${e&&e.type===t?'selected':''}>${ACC_TYPE_ICON[t]||''} ${t}</option>`).join('')}
       </select>
     </div>
