@@ -741,10 +741,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Backspace'){const active=doc
 // ═══════════════════════════════════════════════════
 const DEFAULT_PAYMENT_METHODS = [
   {id:'pm-prevod',   label:'Bankovní převod', icon:'🏦'},
-  {id:'pm-karta',    label:'Karta',            icon:'💳'},
+  {id:'pm-karta',    label:'Debetní karta',    icon:'💳'},
+  {id:'pm-kredit',   label:'Kreditní karta',   icon:'💎'},
   {id:'pm-hotovost', label:'Hotovost',         icon:'💵'},
   {id:'pm-inkaso',   label:'Inkaso / SIPO',    icon:'🔁'},
   {id:'pm-paypal',   label:'PayPal',           icon:'🅿️'},
+  {id:'pm-revolut',  label:'Revolut',          icon:'🟣'},
 ];
 const DEFAULTS = {
   settings: { eurRate: 25.5, usdRate: 23.0, gbpRate: 29.5, chfRate: 26.5, theme: 'light', lastExport: null },
@@ -784,6 +786,12 @@ let D = (() => {
       if (!d.ownAccountNumbers) d.ownAccountNumbers = [];
       if (!d.initializedMonths) d.initializedMonths = [];
       if (!d.paymentMethods) d.paymentMethods = JSON.parse(JSON.stringify(DEFAULT_PAYMENT_METHODS));
+      // Add new payment methods to existing users
+      if(!d.paymentMethods.find(p=>p.id==='pm-kredit')) d.paymentMethods.splice(2,0,{id:'pm-kredit',label:'Kreditní karta',icon:'💎'});
+      if(!d.paymentMethods.find(p=>p.id==='pm-revolut')) d.paymentMethods.push({id:'pm-revolut',label:'Revolut',icon:'🟣'});
+      // Rename "Karta" to "Debetní karta"
+      const pmKarta=d.paymentMethods.find(p=>p.id==='pm-karta'&&p.label==='Karta');
+      if(pmKarta) pmKarta.label='Debetní karta';
       if (!d.settings.usdRate) d.settings.usdRate = 23.0;
       if (!d.settings.gbpRate) d.settings.gbpRate = 29.5;
       if (!d.settings.chfRate) d.settings.chfRate = 26.5;
