@@ -11511,6 +11511,10 @@ function goalStatus(g,val){
   return {color:'var(--text3)',icon:'○',text:'—'};
 }
 let _fitTab='overview'; // overview | workouts | daily | body | records
+var _fitDay=null; // null = today, else date string like '2026-03-27'
+function _getFitDay(){ return _fitDay || new Date().toISOString().slice(0,10); }
+function _fitDayNav(offset){ const d=new Date(_getFitDay()); d.setDate(d.getDate()+offset); const ds=d.toISOString().slice(0,10); const todayS=new Date().toISOString().slice(0,10); _fitDay=ds===todayS?null:ds; renderMain(); }
+function _fitDaySet(ds){ const todayS=new Date().toISOString().slice(0,10); _fitDay=ds===todayS?null:ds; renderMain(); }
 
 function fitness() {
   if(!D.workouts) D.workouts=[];
@@ -11659,69 +11663,86 @@ function fitness() {
     days14.sort().reverse();
     const dayNames2=['Ne','Po','Út','St','Čt','Pá','So'];
 
+    const selDay=_getFitDay();
+    const selDl=getDailyLog(selDay);
+    const selIsToday=selDay===todayStr;
+    const selDayName=['Neděle','Pondělí','Úterý','Středa','Čtvrtek','Pátek','Sobota'][new Date(selDay).getDay()];
+    const selSleepHrs=selDl.sleepTo&&selDl.sleepFrom?calcSleepHours(selDl.sleepFrom,selDl.sleepTo):null;
+    const selWk=wk.filter(w=>w.date===selDay).length;
+
     return `<div class="page-head"><div class="page-title">🏃 Sport & Zdraví</div></div>${tabs}
-      <div class="card mb-4" style="border:2px solid var(--primary)30;">
-        <div class="section-title mb-3">📅 Dnešní log — ${todayStr}</div>
+
+      <!-- Day navigation -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px;">
+        <button style="width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onclick="_fitDayNav(-1)">‹</button>
+        <div style="text-align:center;min-width:140px;">
+          <div style="font-size:17px;font-weight:800;">${selIsToday?'Dnes':selDayName}</div>
+          <div style="font-size:12px;color:var(--text3);">${selDay.slice(8)}.${selDay.slice(5,7)}.${selDay.slice(0,4)}</div>
+        </div>
+        <button style="width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;${selIsToday?'opacity:.3;pointer-events:none;':''}" onclick="_fitDayNav(1)">›</button>
+      </div>
+      ${!selIsToday?`<div style="text-align:center;margin-bottom:12px;"><button style="font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;font-weight:600;" onclick="_fitDay=null;renderMain();">← Zpět na dnes</button></div>`:''}
+
+      <div class="card mb-4">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
           <div style="text-align:center;padding:12px;border-radius:12px;background:var(--surface2);">
             <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">💧 Voda (litry)</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-              <button style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:14px;" onclick="setDailyVal('${todayStr}','water',Math.max(0,Math.round(((getDailyLog('${todayStr}').water||0)-0.1)*10)/10))">−</button>
-              <span style="font-size:22px;font-weight:800;min-width:40px;">${(dl.water||0).toFixed(1)}</span>
-              <button style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:14px;" onclick="setDailyVal('${todayStr}','water',Math.round(((getDailyLog('${todayStr}').water||0)+0.1)*10)/10)">+</button>
+              <button style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:16px;" onclick="setDailyVal('${selDay}','water',Math.max(0,Math.round(((getDailyLog('${selDay}').water||0)-0.1)*10)/10))">−</button>
+              <span style="font-size:24px;font-weight:800;min-width:44px;">${(selDl.water||0).toFixed(1)}</span>
+              <button style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:16px;" onclick="setDailyVal('${selDay}','water',Math.round(((getDailyLog('${selDay}').water||0)+0.1)*10)/10))">+</button>
             </div>
-            <div style="height:4px;background:var(--surface1);border-radius:100px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,(dl.water||0)/2.5*100)}%;background:var(--primary);border-radius:100px;"></div></div>
-            <div style="font-size:9px;color:var(--text3);text-align:center;margin-top:2px;">cíl 2,5 l</div>
+            <div style="height:5px;background:var(--surface1);border-radius:100px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,(selDl.water||0)/2.5*100)}%;background:var(--primary);border-radius:100px;"></div></div>
           </div>
           <div style="text-align:center;padding:12px;border-radius:12px;background:var(--surface2);">
             <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">☕ Kávy</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-              <button style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:14px;" onclick="setDailyVal('${todayStr}','coffee',Math.max(0,(getDailyLog('${todayStr}').coffee||0)-1))">−</button>
-              <span style="font-size:22px;font-weight:800;min-width:30px;">${dl.coffee||0}</span>
-              <button style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:14px;" onclick="setDailyVal('${todayStr}','coffee',(getDailyLog('${todayStr}').coffee||0)+1)">+</button>
+              <button style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:16px;" onclick="setDailyVal('${selDay}','coffee',Math.max(0,(getDailyLog('${selDay}').coffee||0)-1))">−</button>
+              <span style="font-size:24px;font-weight:800;min-width:34px;color:${(selDl.coffee||0)>2?'var(--danger)':'inherit'};">${selDl.coffee||0}</span>
+              <button style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:16px;" onclick="setDailyVal('${selDay}','coffee',(getDailyLog('${selDay}').coffee||0)+1)">+</button>
             </div>
           </div>
           <div style="text-align:center;padding:12px;border-radius:12px;background:var(--surface2);">
-            <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">🧉 Yerba Maté</div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">🧉 Yerba</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-              <button style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:14px;" onclick="setDailyVal('${todayStr}','yerba',Math.max(0,(getDailyLog('${todayStr}').yerba||0)-1))">−</button>
-              <span style="font-size:22px;font-weight:800;min-width:30px;">${dl.yerba||0}</span>
-              <button style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:14px;" onclick="setDailyVal('${todayStr}','yerba',(getDailyLog('${todayStr}').yerba||0)+1)">+</button>
+              <button style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:16px;" onclick="setDailyVal('${selDay}','yerba',Math.max(0,(getDailyLog('${selDay}').yerba||0)-1))">−</button>
+              <span style="font-size:24px;font-weight:800;min-width:34px;">${selDl.yerba||0}</span>
+              <button style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:16px;" onclick="setDailyVal('${selDay}','yerba',(getDailyLog('${selDay}').yerba||0)+1)">+</button>
             </div>
           </div>
           <div style="text-align:center;padding:12px;border-radius:12px;background:var(--surface2);">
-            <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">🚶 Km chůze</div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">🚶 Chůze km</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-              <button style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:14px;" onclick="setDailyVal('${todayStr}','steps',Math.max(0,Math.round(((getDailyLog('${todayStr}').steps||0)-0.5)*10)/10))">−</button>
-              <span style="font-size:22px;font-weight:800;min-width:30px;">${dl.steps||0}</span>
-              <button style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:14px;" onclick="setDailyVal('${todayStr}','steps',Math.round(((getDailyLog('${todayStr}').steps||0)+0.5)*10)/10)">+</button>
+              <button style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:16px;" onclick="setDailyVal('${selDay}','steps',Math.max(0,Math.round(((getDailyLog('${selDay}').steps||0)-0.5)*10)/10))">−</button>
+              <span style="font-size:24px;font-weight:800;min-width:34px;">${selDl.steps||0}</span>
+              <button style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface1);cursor:pointer;font-size:16px;" onclick="setDailyVal('${selDay}','steps',Math.round(((getDailyLog('${selDay}').steps||0)+0.5)*10)/10))">+</button>
             </div>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
           <div style="padding:12px;border-radius:12px;background:var(--surface2);">
             <div style="font-size:10px;color:var(--text3);margin-bottom:6px;">🍽️ Kvalita stravy</div>
-            <div style="display:flex;gap:6px;">${Object.entries(FOOD_QUALITY).map(([k,v])=>`<span style="padding:4px 10px;border-radius:100px;font-size:11px;cursor:pointer;background:${dl.food===k?'var(--primary)':'var(--surface1)'};color:${dl.food===k?'#fff':'var(--text2)'};" onclick="setDailyVal('${todayStr}','food','${k}')">${v}</span>`).join('')}</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">${Object.entries(FOOD_QUALITY).map(([k,v])=>`<span style="padding:4px 8px;border-radius:100px;font-size:10px;cursor:pointer;background:${selDl.food===k?'var(--primary)':'var(--surface1)'};color:${selDl.food===k?'#fff':'var(--text2)'};" onclick="setDailyVal('${selDay}','food','${k}')">${v}</span>`).join('')}</div>
           </div>
           <div style="padding:12px;border-radius:12px;background:var(--surface2);">
             <div style="font-size:10px;color:var(--text3);margin-bottom:6px;">😴 Spánek</div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input type="time" class="form-input" style="width:100px;padding:4px 8px;font-size:12px;" value="${dl.sleepFrom||''}" onchange="setDailyVal('${todayStr}','sleepFrom',this.value)">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <input type="time" class="form-input" style="width:90px;padding:4px 6px;font-size:12px;" value="${selDl.sleepFrom||''}" onchange="setDailyVal('${selDay}','sleepFrom',this.value)">
               <span style="font-size:11px;color:var(--text3);">→</span>
-              <input type="time" class="form-input" style="width:100px;padding:4px 8px;font-size:12px;" value="${dl.sleepTo||''}" onchange="setDailyVal('${todayStr}','sleepTo',this.value)">
-              ${sleepHrs!=null?`<span style="font-size:13px;font-weight:700;color:${sleepHrs>=7?'var(--success)':sleepHrs>=5?'var(--warning)':'var(--danger)'};">${sleepHrs}h</span>`:''}
+              <input type="time" class="form-input" style="width:90px;padding:4px 6px;font-size:12px;" value="${selDl.sleepTo||''}" onchange="setDailyVal('${selDay}','sleepTo',this.value)">
+              ${selSleepHrs!=null?`<span style="font-size:14px;font-weight:700;color:${selSleepHrs>=7?'var(--success)':selSleepHrs>=5?'var(--warning)':'var(--danger)'};">${selSleepHrs}h</span>`:''}
             </div>
           </div>
         </div>
       </div>
 
       <div class="card mb-4">
-        <div class="flex-b mb-3"><div class="section-title">🎯 Dnešní cíle</div>
-          <span style="font-size:12px;font-weight:700;color:${(()=>{const s=dailyScore(todayStr);return s.pct>=80?'var(--success)':s.pct>=50?'var(--warning)':'var(--danger)';})()};">${dailyScore(todayStr).passed}/${dailyScore(todayStr).total} splněno</span>
+        <div class="flex-b mb-3"><div class="section-title">🎯 Cíle${selIsToday?'':' — '+selDay.slice(8)+'.'+selDay.slice(5,7)+'.'}</div>
+          <span style="font-size:12px;font-weight:700;color:${(()=>{const s=dailyScore(selDay);return s.pct>=80?'var(--success)':s.pct>=50?'var(--warning)':'var(--danger)';})()};">${dailyScore(selDay).passed}/${dailyScore(selDay).total} splněno</span>
         </div>
         ${getDailyGoals().map(g=>{
-          const wkToday=wk.filter(w=>w.date===todayStr).length;
-          const val=g.id==='workout'?wkToday:g.id==='sleep_hours'?(dl.sleepTo&&dl.sleepFrom?calcSleepHours(dl.sleepFrom,dl.sleepTo):null):(dl[g.id]||0);
+          const wkDay=wk.filter(w=>w.date===selDay).length;
+          const val=g.id==='workout'?wkDay:g.id==='sleep_hours'?(selDl.sleepTo&&selDl.sleepFrom?calcSleepHours(selDl.sleepFrom,selDl.sleepTo):null):(selDl[g.id]||0);
           const st=goalStatus(g,val);
           const targetLabel=g.direction==='min'?(g.target?'min. '+g.target+' '+g.unit:'—'):(g.max!=null?'max. '+g.max+' '+g.unit:'—');
           const pct=g.direction==='min'&&g.target?Math.min(100,Math.round((val||0)/g.target*100)):null;
