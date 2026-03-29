@@ -1792,39 +1792,7 @@ function dashboard() {
       </div>
     </div>
     ${alerts?`<div class="mb-4">${alerts}</div>`:''}
-    ${(()=>{
-      const myBanks = D.myBanks||[];
-      if(!myBanks.length) return '';
-      const uploaded = myBanks.filter(bid=>isStatementUploaded(bid,cm));
-      const missing  = myBanks.filter(bid=>!isStatementUploaded(bid,cm));
-      const allDone  = missing.length===0;
-      return `<div class="card mb-4" style="padding:0;">
-        <div class="section-head" style="padding:11px 16px 9px;">
-          <div class="section-title" style="font-size:14px;">
-            📁 Výpisy ${fmtMonth(cm)}
-            ${allDone
-              ? `<span style="font-size:12px;font-weight:600;color:var(--success);margin-left:8px;">✓ vše nahráno</span>`
-              : `<span style="font-size:12px;font-weight:600;color:var(--warning);margin-left:8px;">${missing.length} chybí</span>`}
-          </div>
-          <!-- import button hidden: výpisy z banky dej zatím pryč -->
-        </div>
-        <div>
-          ${myBanks.map(bid=>{
-            const bank = CZ_BANK_MAP[bid]||{name:bid,icon:'🏦'};
-            const info = statementInfo(bid,cm);
-            const done = !!info;
-            return `<div class="stmt-row">
-              <div class="stmt-badge ${done?'done':'miss'}">${done?'✓':'!'}</div>
-              <span class="stmt-name">${bank.icon} ${bank.name}</span>
-              ${done
-                ? `<span class="stmt-ok">nahráno ${info.uploadedAt||''}${info.txCount?' · '+info.txCount+' tx':''}</span>
-                   <button class="btn btn-ghost btn-sm btn-icon" title="Zrušit" onclick="unmarkStatement('${bid}','${cm}')">↩</button>`
-                : `<!-- import button hidden -->`}
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    })()}
+    ${'<!-- výpisy odstraněny — aktualizace přes zůstatky -->'}
     ${_dsBody}
   `;
 }
