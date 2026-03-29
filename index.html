@@ -5087,7 +5087,8 @@ function openAccModal(isLiab=false, editId=null) {
         const cc=document.getElementById('a-cc-fields');
         if(cc) cc.style.display=this.value==='Kreditní karta'?'block':'none';
         const bl=document.getElementById('a-bal-label');
-        if(bl&&document.getElementById('a-liab')) bl.textContent=this.value==='Kreditní karta'?'Zbývající kredit (kolik máš k dispozici)':'Zbývající dluh';
+        const isL=document.getElementById('a-liab')&&document.getElementById('a-liab').value==='true';
+        if(bl){if(isL) bl.textContent=this.value==='Kreditní karta'?'Zbývající kredit (kolik máš k dispozici)':'Zbývající dluh'; else bl.textContent='Aktuální zůstatek';}
       })()">
         ${types.map(t=>`<option value="${t}" ${e&&e.type===t?'selected':''}>${ACC_TYPE_ICON[t]||''} ${t}</option>`).join('')}
       </select>
