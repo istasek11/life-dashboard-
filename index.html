@@ -880,9 +880,9 @@ function cloudLoad(){
   fetch('https://api.jsonbin.io/v3/b/'+binId+'/latest',{
     headers:{'X-Master-Key':apiKey}
   }).then(r=>r.json()).then(res=>{
-    if(res.message){_setSyncStatus('error',res.message);alert('Chyba: '+res.message);return;}
+    if(res.message){_setSyncStatus('error',res.message);return;}
     const data=res.record;
-    if(!data||!data.transactions){_setSyncStatus('error','Prázdná data');alert('Žádná data v cloudu.');return;}
+    if(!data||!data.transactions){_setSyncStatus('error','Prázdná data');return;}
     const cloudKey=D.settings.cloudKey, cloudBinId=D.settings.cloudBinId;
     D=data;
     if(!D.settings) D.settings={};
@@ -891,8 +891,7 @@ function cloudLoad(){
     localStorage.setItem('fa_v2',JSON.stringify(D));
     _setSyncStatus('ok','Načteno ☁️');
     renderNav(); renderMain();
-    alert('Data načtena z cloudu ✓');
-  }).catch(e=>{_setSyncStatus('error','Chyba připojení');alert('Nepodařilo se připojit: '+e.message);});
+  }).catch(e=>{_setSyncStatus('error','Offline');});
 }
 function cloudCreateBin(){
   const apiKey=(document.getElementById('cloud-key').value||'').trim();
@@ -3665,12 +3664,32 @@ function saveTx(){
     const toEl=document.getElementById('m-to-acc');
     if(fromEl&&fromEl.value) tx.fromAccountId=fromEl.value;
     if(toEl&&toEl.value) tx.toAccountId=toEl.value;
-    // auto-adjust account balances
-    if(tx.fromAccountId){const a=D.accounts.find(x=>x.id===tx.fromAccountId);if(a)a.balance=Math.round((a.balance-tx.amount)*100)/100;}
-    if(tx.toAccountId){const a=D.accounts.find(x=>x.id===tx.toAccountId);if(a)a.balance=Math.round((a.balance+tx.amount)*100)/100;}
+    // Reverse old transfer if editing
+    if(editId){
+      const oldTx=D.transactions.find(t=>t.id===editId);
+      if(oldTx&&oldTx.type==='transfer'){
+        if(oldTx.fromAccountId){const a=D.accounts.find(x=>x.id===oldTx.fromAccountId);if(a)a.balance=Math.round((a.balance+oldTx.amount)*100)/100;}
+        if(oldTx.toAccountId){const a=D.accounts.find(x=>x.id===oldTx.toAccountId);if(a)a.balance=Math.round((a.balance-oldTx.amount)*100)/100;}
+      }
+    }
+    // Apply new transfer - respect currency
+    if(tx.fromAccountId){
+      const a=D.accounts.find(x=>x.id===tx.fromAccountId);
+      if(a){
+        const adjAmt=a.currency===tx.currency?tx.amount:(toCZK(tx.amount,tx.currency)/(a.currency==='EUR'?(D.settings.eurRate||25.5):a.currency==='USD'?(D.settings.usdRate||23):1));
+        a.balance=Math.round((a.balance-adjAmt)*100)/100;
+      }
+    }
+    if(tx.toAccountId){
+      const a=D.accounts.find(x=>x.id===tx.toAccountId);
+      if(a){
+        const adjAmt=a.currency===tx.currency?tx.amount:(toCZK(tx.amount,tx.currency)/(a.currency==='EUR'?(D.settings.eurRate||25.5):a.currency==='USD'?(D.settings.usdRate||23):1));
+        a.balance=Math.round((a.balance+adjAmt)*100)/100;
+      }
+    }
   } else {
-    const accEl=document.getElementById('m-acc');
-    if(accEl&&accEl.value) tx.accountId=accEl.value;
+    const accEl2=document.getElementById('m-acc');
+    if(accEl2&&accEl2.value) tx.accountId=accEl2.value;
   }
   if(editId){
     const i=D.transactions.findIndex(t=>t.id===editId);
@@ -3682,6 +3701,11 @@ function saveTx(){
 }
 function delTx(id){
   const tx=D.transactions.find(t=>t.id===id); if(!tx)return;
+  // Reverse account balance changes for transfers
+  if(tx.type==='transfer'){
+    if(tx.fromAccountId){const a=D.accounts.find(x=>x.id===tx.fromAccountId);if(a)a.balance=Math.round((a.balance+tx.amount)*100)/100;}
+    if(tx.toAccountId){const a=D.accounts.find(x=>x.id===tx.toAccountId);if(a)a.balance=Math.round((a.balance-tx.amount)*100)/100;}
+  }
   D.transactions=D.transactions.filter(t=>t.id!==id);
   save(); renderMain();
   pushUndo(`Transakce „${tx.description||tx.category}"`, ()=>{ D.transactions.push(tx); });
