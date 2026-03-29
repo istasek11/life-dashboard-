@@ -818,7 +818,12 @@ let D = (() => {
       if (!d.cars) d.cars = [];
       if (!d.trips) d.trips = [];
       // Migration: auto-create linked expenses for existing debts with minPayment
-      const _migMonth=new Date().toISOString().slice(0,7);
+      // Use next month so expenses don't appear in the current (setup) month
+      const _now=new Date();
+      const _nextMonth=new Date(_now.getFullYear(),_now.getMonth()+1,1).toISOString().slice(0,7);
+      const _curMigMonth=_now.toISOString().slice(0,7);
+      // Fix already-stored linked expenses with null or current-month createdMonth → next month
+      (d.recurringExpenses||[]).filter(e=>e.linkedDebtId&&(!e.createdMonth||e.createdMonth===_curMigMonth)).forEach(e=>{e.createdMonth=_nextMonth;});
       (d.debts||[]).filter(a=>a.minPayment>0).forEach(a=>{
         if(!d.recurringExpenses.find(e=>e.linkedDebtId===a.id)){
           d.recurringExpenses.push({
@@ -826,7 +831,7 @@ let D = (() => {
             name:a.name+' — splátka', groupId:null,
             amount:a.minPayment, currency:a.currency||'CZK',
             dueDay:a.dueDay||null,
-            autoRepeat:true, repeatEvery:1, createdMonth:_migMonth,
+            autoRepeat:true, repeatEvery:1, createdMonth:_nextMonth,
             linkedDebtId:a.id, note:'Automaticky z dluhu'
           });
         }
