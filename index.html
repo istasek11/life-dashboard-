@@ -5263,11 +5263,19 @@ function debts() {
   const totalMin = ds.reduce((s,d) => s + toCZK(d.minPayment||0,d.currency), 0);
   const paidPct = totalOrig > 0 ? Math.round((1 - totalDebt/totalOrig)*100) : 0;
   const sim = _debtSimulate(ds, totalMin, _debtMethod);
-  const mIncome = monthIncome();
-  const dti = mIncome>0 ? Math.round(totalMin/mIncome*100) : 0;
+  // Average monthly income (last 6 months for better accuracy)
   const now = new Date();
+  let _incSum=0,_incMonths=0;
+  for(let i=0;i<6;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const mn=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');const mi=monthIncome(mn);if(mi>0){_incSum+=mi;_incMonths++;}}
+  const avgIncome=_incMonths>0?Math.round(_incSum/_incMonths):0;
+  const mIncome = avgIncome || monthIncome();
+  const dti = mIncome>0 ? Math.round(totalMin/mIncome*100) : 0;
+  const debtToIncome = mIncome>0 ? Math.round(totalDebt/(mIncome*12)*100) : 0; // debt vs annual income
   const debtFreeDate = sim.months>0 ? (()=>{const d=new Date(now.getFullYear(),now.getMonth()+sim.months,1);return d.getMonth()+1+'/'+d.getFullYear();})() : '—';
   const weightedRate = totalDebt>0 ? ds.reduce((s,d)=>s+(d.rate||0)*toCZK(d.balance,d.currency)/totalDebt,0).toFixed(2) : 0;
+  // Net worth impact
+  const nw=netWorth();
+  const debtVsNw=nw!==0?Math.round(totalDebt/Math.abs(nw)*100):0;
 
   const tabs = `<div class="flex-c gap-2 mb-4" style="flex-wrap:wrap;">
     ${['overview','payments','analysis','strategy'].map(t=>`<span class="chip ${_debtTab===t?'active':''}" onclick="_debtTab='${t}';renderMain()">${{overview:'Přehled',payments:'Splátky',analysis:'Analýza',strategy:'Strategie'}[t]}</span>`).join('')}
@@ -5308,12 +5316,44 @@ function debts() {
     return `
       <div class="page-head"><div class="page-title">💳 Dluhy</div><button class="btn btn-primary" onclick="openDebtModal()">+ Přidat dluh</button></div>
       ${tabs}
-      <div class="g4 mb-4" style="grid-template-columns:repeat(5,1fr);">
-        <div class="card dash-kpi"><div class="dash-kpi-label">Celkový dluh</div><div class="dash-kpi-val neg">${fmtAmt(totalDebt)}</div></div>
-        <div class="card dash-kpi"><div class="dash-kpi-label">Splaceno</div><div class="dash-kpi-val" style="color:var(--primary)">${paidPct}%</div></div>
-        <div class="card dash-kpi"><div class="dash-kpi-label">Min. splátky/měs</div><div class="dash-kpi-val">${fmtAmt(totalMin)}</div></div>
-        <div class="card dash-kpi"><div class="dash-kpi-label">Bez dluhů</div><div class="dash-kpi-val">${debtFreeDate}</div><div class="dash-kpi-sub text-muted">${sim.months>0?sim.months+' měs.':'—'}</div></div>
-        <div class="card dash-kpi"><div class="dash-kpi-label">DTI poměr</div><div class="dash-kpi-val" style="color:${dti>40?'var(--danger)':dti>20?'var(--warning)':'var(--success)'};">${dti}%</div><div class="dash-kpi-sub text-muted">Dluh/příjem</div></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div class="card" style="padding:18px 22px;background:linear-gradient(135deg,var(--danger),#b91c1c);color:#fff;border:none;">
+          <div style="font-size:11px;opacity:.7;">Celkový dluh</div>
+          <div style="font-size:28px;font-weight:800;">${fmtAmt(totalDebt)}</div>
+          <div style="font-size:11px;opacity:.7;margin-top:4px;">${paidPct}% splaceno z ${fmtAmt(totalOrig)}</div>
+        </div>
+        <div class="card" style="padding:14px 18px;">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;">Splátky/měs</div>
+          <div style="font-size:20px;font-weight:800;">${fmtAmt(totalMin)}</div>
+          <div style="font-size:10px;color:var(--text3);">z příjmu ${mIncome>0?fmtAmt(mIncome)+'/měs':'—'}</div>
+        </div>
+        <div class="card" style="padding:14px 18px;">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;">Bez dluhů</div>
+          <div style="font-size:20px;font-weight:800;">${debtFreeDate}</div>
+          <div style="font-size:10px;color:var(--text3);">${sim.months>0?sim.months+' měsíců':'—'}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+        <div class="card" style="padding:12px 14px;text-align:center;">
+          <div style="font-size:9px;text-transform:uppercase;color:var(--text3);">DTI splátky</div>
+          <div style="font-size:18px;font-weight:800;color:${dti>40?'var(--danger)':dti>20?'var(--warning)':'var(--success)'};">${dti}%</div>
+          <div style="font-size:9px;color:var(--text3);">splátky/příjem</div>
+        </div>
+        <div class="card" style="padding:12px 14px;text-align:center;">
+          <div style="font-size:9px;text-transform:uppercase;color:var(--text3);">Dluh/roční příjem</div>
+          <div style="font-size:18px;font-weight:800;color:${debtToIncome>100?'var(--danger)':debtToIncome>50?'var(--warning)':'var(--success)'};">${debtToIncome}%</div>
+          <div style="font-size:9px;color:var(--text3);">${debtToIncome<=50?'zdravé':'rizikové'}</div>
+        </div>
+        <div class="card" style="padding:12px 14px;text-align:center;">
+          <div style="font-size:9px;text-transform:uppercase;color:var(--text3);">Dluh vs. majetek</div>
+          <div style="font-size:18px;font-weight:800;color:${debtVsNw>80?'var(--danger)':debtVsNw>40?'var(--warning)':'var(--success)'};">${debtVsNw}%</div>
+          <div style="font-size:9px;color:var(--text3);">čistá hodnota ${fmtAmt(nw)}</div>
+        </div>
+        <div class="card" style="padding:12px 14px;text-align:center;">
+          <div style="font-size:9px;text-transform:uppercase;color:var(--text3);">Prům. úrok</div>
+          <div style="font-size:18px;font-weight:800;">${weightedRate}%</div>
+          <div style="font-size:9px;color:var(--text3);">vážený průměr</div>
+        </div>
       </div>
       <div class="g2 mb-4">
         <div class="card">
