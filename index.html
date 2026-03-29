@@ -11512,21 +11512,21 @@ function goalStatus(g,val){
 }
 let _fitTab='overview'; // overview | workouts | daily | body | records
 var _fitDay=null; // null = today, else date string like '2026-03-27'
-function _getFitDay(){ return _fitDay || new Date().toISOString().slice(0,10); }
-function _fitDayNav(offset){ const d=new Date(_getFitDay()); d.setDate(d.getDate()+offset); const ds=d.toISOString().slice(0,10); const todayS=new Date().toISOString().slice(0,10); _fitDay=ds===todayS?null:ds; renderMain(); }
-function _fitDaySet(ds){ const todayS=new Date().toISOString().slice(0,10); _fitDay=ds===todayS?null:ds; renderMain(); }
+function _getFitDay(){ return _fitDay || localDateStr(new Date()); }
+function _fitDayNav(offset){ const d=new Date(_getFitDay()+'T12:00:00'); d.setDate(d.getDate()+offset); const ds=localDateStr(d); const todayS=localDateStr(new Date()); _fitDay=ds===todayS?null:ds; renderMain(); }
+function _fitDaySet(ds){ const todayS=localDateStr(new Date()); _fitDay=ds===todayS?null:ds; renderMain(); }
 
 function fitness() {
   if(!D.workouts) D.workouts=[];
   if(!D.weightLog) D.weightLog=[];
   if(!D.bodyMeasurements) D.bodyMeasurements=[];
   const wk=D.workouts;
-  const today=new Date(); today.setHours(0,0,0,0);
-  const todayStr=today.toISOString().slice(0,10);
+  const today=new Date();
+  const todayStr=localDateStr(today);
 
   // Streak
   let streak=0;
-  for(let i=0;i<365;i++){const d=new Date(today);d.setDate(d.getDate()-i);if(wk.some(w=>w.date===d.toISOString().slice(0,10)))streak++;else break;}
+  for(let i=0;i<365;i++){const d=new Date(today);d.setDate(d.getDate()-i);if(wk.some(w=>w.date===localDateStr(d)))streak++;else break;}
   // Best streak
   let bestStreak=0,cs=0;
   const allDates=[...new Set(wk.map(w=>w.date))].sort();
@@ -11534,7 +11534,7 @@ function fitness() {
 
   // This week / month
   const weekStart=new Date(today);weekStart.setDate(weekStart.getDate()-weekStart.getDay()+1);
-  const ws=weekStart.toISOString().slice(0,10);
+  const ws=localDateStr(weekStart);
   const ms=todayStr.slice(0,7);
   const thisWeek=wk.filter(w=>w.date>=ws);
   const thisMonth=wk.filter(w=>w.date&&w.date.startsWith(ms));
@@ -11575,7 +11575,7 @@ function fitness() {
 
   // Workout frequency chart (last 12 weeks)
   let freqChart='';
-  {const weeks=[];for(let i=11;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i*7);const wStart=new Date(d);wStart.setDate(wStart.getDate()-wStart.getDay()+1);const wEnd=new Date(wStart);wEnd.setDate(wEnd.getDate()+6);const ws2=wStart.toISOString().slice(0,10);const we=wEnd.toISOString().slice(0,10);const cnt=wk.filter(w=>w.date>=ws2&&w.date<=we).length;weeks.push({cnt,label:'T-'+i});}
+  {const weeks=[];for(let i=11;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i*7);const wStart=new Date(d);wStart.setDate(wStart.getDate()-wStart.getDay()+1);const wEnd=new Date(wStart);wEnd.setDate(wEnd.getDate()+6);const ws2=localDateStr(wStart);const we=localDateStr(wEnd);const cnt=wk.filter(w=>w.date>=ws2&&w.date<=we).length;weeks.push({cnt,label:'T-'+i});}
   const maxCnt=Math.max(...weeks.map(w=>w.cnt),1);
   const bW=600,bH=80;
   const barSlot=bW/12;
@@ -11659,7 +11659,7 @@ function fitness() {
     // Last 14 days daily logs
     const allLogDates=[...new Set([...Object.keys(D.dailyLogs||{}), ...(D.workouts||[]).map(w=>w.date)])].filter(Boolean).sort().reverse();
     const days14=[todayStr];
-    for(let i=1;i<Math.max(14,allLogDates.length+1);i++){const d=new Date(today);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);if(i<14||allLogDates.includes(ds))days14.push(ds);}
+    for(let i=1;i<Math.max(14,allLogDates.length+1);i++){const d=new Date(today);d.setDate(d.getDate()-i);const ds=localDateStr(d);if(i<14||allLogDates.includes(ds))days14.push(ds);}
     days14.sort().reverse();
     const dayNames2=['Ne','Po','Út','St','Čt','Pá','So'];
 
@@ -11929,8 +11929,8 @@ function getDailyLog(date){ if(!D.dailyLogs) D.dailyLogs={}; return D.dailyLogs[
 function setDailyVal(date,key,val){ if(!D.dailyLogs) D.dailyLogs={}; if(!D.dailyLogs[date]) D.dailyLogs[date]={}; D.dailyLogs[date][key]=val; save(); renderMain(); }
 function calcSleepHours(from,to){ if(!from||!to)return null; const [fh,fm]=from.split(':').map(Number); const [th,tm]=to.split(':').map(Number); let mins=(th*60+tm)-(fh*60+fm); if(mins<0) mins+=24*60; return Math.round(mins/60*10)/10; }
 
-function _waterToday(){ return getDailyLog(new Date().toISOString().slice(0,10)).water||0; }
-function setWater(n){ setDailyVal(new Date().toISOString().slice(0,10),'water',n); }
+function _waterToday(){ return getDailyLog(localDateStr(new Date())).water||0; }
+function setWater(n){ setDailyVal(localDateStr(new Date()),'water',n); }
 
 function openWorkoutModal(editId){
   const e=editId?(D.workouts||[]).find(x=>x.id===editId):null;
