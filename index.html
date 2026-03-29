@@ -15329,6 +15329,7 @@ function settings(){
         <button class="btn btn-ghost" onclick="document.getElementById('imp-inp').click()">📥 Importovat zálohu</button>
         <input type="file" id="imp-inp" accept=".json" style="display:none" onchange="importJSON(event)">
         <button class="btn btn-ghost" onclick="exportCSV()">📋 Export CSV (transakce)</button>
+        <button class="btn btn-ghost" onclick="exportFinanceAI()">🤖 Finanční report pro AI</button>
         <div style="flex:1;"></div>
         <button class="btn btn-danger" onclick="clearAll()">🗑️ Smazat vše</button>
       </div>
@@ -15432,6 +15433,98 @@ function exportJSON(){
   a.href=URL.createObjectURL(blob);
   a.download=`finance-backup-${localDateStr(new Date())}.json`;
   a.click();
+}
+function exportFinanceAI(){
+  const cm=curMonth();
+  const yr=cm.split('-')[0];
+  const months=[];for(let i=0;i<12;i++){const m=addMonths(cm,-i);if(m.startsWith(yr)||i<6)months.unshift(m);}
+  let r=`# FINANČNÍ REPORT — ${new Date().toLocaleDateString('cs-CZ')}\n`;
+  r+=`Měna: CZK (1 EUR = ${D.settings.eurRate} Kč)\n\n`;
+  // Net worth
+  const nw=netWorth();
+  const assets=D.accounts.filter(a=>!a.isLiability);
+  const liabs=D.accounts.filter(a=>a.isLiability);
+  r+=`## ČISTÁ HODNOTA: ${Math.round(nw).toLocaleString('cs-CZ')} Kč\n\n`;
+  r+=`### Aktiva\n`;
+  assets.forEach(a=>r+=`- ${a.name} (${a.type}): ${Math.round(a.balance).toLocaleString('cs-CZ')} ${a.currency}\n`);
+  r+=`\n### Závazky (účty)\n`;
+  liabs.forEach(a=>r+=`- ${a.name} (${a.type}): ${Math.round(a.balance).toLocaleString('cs-CZ')} ${a.currency}\n`);
+  // Debts
+  const debts=D.debts||[];
+  if(debts.length){
+    r+=`\n### Dluhy\n`;
+    debts.forEach(d=>r+=`- ${d.name}: zůstatek ${Math.round(d.balance).toLocaleString('cs-CZ')} ${d.currency} (původní ${Math.round(d.originalBalance||0).toLocaleString('cs-CZ')}), splátka ${Math.round(d.minPayment||0).toLocaleString('cs-CZ')}/měs, úrok ${d.rate||0}% p.a.${d.lender?' — '+d.lender:''}${d.endDate?' — splatnost '+d.endDate:''}\n`);
+  }
+  // Monthly income & expenses
+  r+=`\n## MĚSÍČNÍ PŘEHLED\n`;
+  r+=`| Měsíc | Příjmy | Výdaje | Cash Flow | Míra úspor |\n|---|---|---|---|---|\n`;
+  months.forEach(m=>{
+    const inc=incTotal(m),exp=recTotal(m),cf=inc-exp;
+    const sr=inc>0?Math.round(cf/inc*100):0;
+    r+=`| ${fmtMonth(m)} | ${Math.round(inc).toLocaleString('cs-CZ')} | ${Math.round(exp).toLocaleString('cs-CZ')} | ${Math.round(cf).toLocaleString('cs-CZ')} | ${sr}% |\n`;
+  });
+  // Recurring expenses
+  r+=`\n## PRAVIDELNÉ VÝDAJE (${cm})\n`;
+  const grps=D.expenseGroups||[];
+  grps.forEach(g=>{
+    const gexps=expensesForMonth(cm).filter(e=>e.groupId===g.id);
+    if(!gexps.length)return;
+    r+=`\n### ${g.name}\n`;
+    gexps.forEach(e=>{
+      const share=e.myShare||100;
+      r+=`- ${e.name}: ${Math.round(expAmt(e)).toLocaleString('cs-CZ')} ${e.currency}${share<100?' ('+share+'% podíl, celkem '+Math.round(e.amount).toLocaleString('cs-CZ')+')':''}${e.autoRepeat?' 🔄':''}\n`;
+    });
+  });
+  const ungrouped=expensesForMonth(cm).filter(e=>!e.groupId);
+  if(ungrouped.length){
+    r+=`\n### Bez skupiny\n`;
+    ungrouped.forEach(e=>r+=`- ${e.name}: ${Math.round(expAmt(e)).toLocaleString('cs-CZ')} ${e.currency}\n`);
+  }
+  // Recurring income
+  r+=`\n## PRAVIDELNÉ PŘÍJMY (${cm})\n`;
+  incomeForMonth(cm).forEach(inc=>r+=`- ${inc.name}${inc.category?' ('+inc.category+')':''}: ${Math.round(inc.amount).toLocaleString('cs-CZ')} ${inc.currency}${inc.autoRepeat?' 🔄 '+INC_FREQ_LABEL[inc.repeatEvery||1]:''}\n`);
+  // YTD
+  const ytdE=ytdExpenses(),ytdI=ytdIncome();
+  r+=`\n## ROK ${yr} — YTD\n`;
+  r+=`- Příjmy celkem: ${Math.round(ytdI).toLocaleString('cs-CZ')} Kč\n`;
+  r+=`- Výdaje celkem: ${Math.round(ytdE).toLocaleString('cs-CZ')} Kč\n`;
+  r+=`- Cash flow: ${Math.round(ytdI-ytdE).toLocaleString('cs-CZ')} Kč\n`;
+  const expCat=ytdExpensesByCategory();
+  if(Object.keys(expCat).length){
+    r+=`\n### Výdaje podle kategorie (YTD)\n`;
+    Object.entries(expCat).sort((a,b)=>b[1]-a[1]).forEach(([c,v])=>r+=`- ${c}: ${Math.round(v).toLocaleString('cs-CZ')} Kč\n`);
+  }
+  // Tax estimate
+  const expPct=_taxExpPct||60;
+  const taxBase=Math.max(0,ytdI*(1-expPct/100));
+  r+=`\n## DAŇ — OSVČ (paušál ${expPct}%)\n`;
+  r+=`- Základ daně (YTD): ${Math.round(taxBase).toLocaleString('cs-CZ')} Kč\n`;
+  // Goals
+  const goals=D.goals||[];
+  if(goals.length){
+    r+=`\n## FINANČNÍ CÍLE\n`;
+    goals.forEach(g=>{
+      const acc=g.accountId?D.accounts.find(a=>a.id===g.accountId):null;
+      const current=acc?acc.balance:0;
+      const pct=g.targetAmount>0?Math.round(current/g.targetAmount*100):0;
+      r+=`- ${g.name}: ${Math.round(current).toLocaleString('cs-CZ')} / ${Math.round(g.targetAmount).toLocaleString('cs-CZ')} Kč (${pct}%)${g.deadline?' — deadline '+g.deadline:''}\n`;
+    });
+  }
+  // Subscriptions
+  const subs=D.subscriptions||[];
+  if(subs.length){
+    r+=`\n## PŘEDPLATNÉ\n`;
+    subs.forEach(s=>r+=`- ${s.name}: ${Math.round(s.price||0).toLocaleString('cs-CZ')} ${s.currency||'CZK'}/${s.billing||'měs'}${s.category?' ('+s.category+')':''}\n`);
+  }
+  r+=`\n---\nVygenerováno z Life Dashboard · ${new Date().toLocaleString('cs-CZ')}\n`;
+  // Download as .md
+  const blob=new Blob([r],{type:'text/markdown'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`financni-report-${localDateStr(new Date())}.md`;
+  a.click();
+  // Also copy to clipboard
+  navigator.clipboard.writeText(r).then(()=>alert('📊 Report stažen a zkopírován do schránky!\n\nVlož ho do Claude pro analýzu.')).catch(()=>alert('📊 Report stažen jako .md soubor.'));
 }
 function importJSON(e){
   const file=e.target.files[0];if(!file)return;
