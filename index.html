@@ -1173,6 +1173,7 @@ const PAGES = [
   {id:'fire',       icon:'🔥',label:'FIRE',             group:'finance'},
   {id:'rule503020', icon:'📐',label:'50/30/20',         group:'finance'},
   {id:'splits',     icon:'🤝',label:'Sdílené výdaje',   group:'finance'},
+  {id:'kanban',     icon:'📌',label:'Kanban',            group:'finance'},
   // Podnikání
   {id:'business',   icon:'🏪',label:'Přehled',          group:'podnikání'},
   {id:'bizprojects',icon:'📁',label:'Projekty',          group:'podnikání'},
@@ -1222,7 +1223,6 @@ const PAGES = [
   {id:'notepad',    icon:'📄',label:'Rychlé poznámky',   group:'nástroje'},
   {id:'countdown',  icon:'⏳',label:'Odpočet',           group:'nástroje'},
   {id:'clipboard',  icon:'📋',label:'Schránka',          group:'nástroje'},
-  {id:'kanban',     icon:'📌',label:'Kanban',            group:'nástroje'},
   {id:'weather',    icon:'🌤️',label:'Počasí',           group:'nástroje'},
   // Ostatní
   {id:'settings',   icon:'⚙️',label:'Nastavení',       group:'ostatní'},
@@ -5062,16 +5062,16 @@ function openAccModal(isLiab=false, editId=null) {
         const cc=document.getElementById('a-cc-fields');
         if(cc) cc.style.display=this.value==='Kreditní karta'?'block':'none';
         const bl=document.getElementById('a-bal-label');
-        if(bl&&document.getElementById('a-liab')) bl.textContent=this.value==='Kreditní karta'?'Aktuální útrata na kartě':'Zbývající dluh';
+        if(bl&&document.getElementById('a-liab')) bl.textContent=this.value==='Kreditní karta'?'Zbývající kredit (kolik máš k dispozici)':'Zbývající dluh';
       })()">
         ${types.map(t=>`<option value="${t}" ${e&&e.type===t?'selected':''}>${ACC_TYPE_ICON[t]||''} ${t}</option>`).join('')}
       </select>
     </div>
     <div class="fr fr2">
       <div class="form-group">
-        <label class="form-label" id="a-bal-label">${isLiab?(e&&e.type==='Kreditní karta'?'Aktuální útrata na kartě':'Zbývající dluh'):'Aktuální zůstatek'}</label>
-        <input type="number" class="form-input" id="a-bal" value="${e?e.balance:''}" placeholder="0" min="0" step="0.01"
-          oninput="(()=>{const lim=document.getElementById('a-cc-limit');const rem=document.getElementById('a-cc-remaining');if(lim&&rem&&lim.value){rem.textContent=Math.max(0,parseFloat(lim.value)-(parseFloat(this.value)||0)).toLocaleString('cs-CZ')+' Kč';}})()">
+        <label class="form-label" id="a-bal-label">${isLiab?(e&&e.type==='Kreditní karta'?'Zbývající kredit (kolik máš k dispozici)':'Zbývající dluh'):'Aktuální zůstatek'}</label>
+        <input type="number" class="form-input" id="a-bal" value="${e&&e.type==='Kreditní karta'&&e.creditLimit?e.creditLimit-e.balance:e?e.balance:''}" placeholder="0" min="0" step="0.01"
+          oninput="(()=>{const lim=document.getElementById('a-cc-limit');const sp=document.getElementById('a-cc-spent');if(lim&&sp&&lim.value){sp.textContent=Math.max(0,parseFloat(lim.value)-(parseFloat(this.value)||0)).toLocaleString('cs-CZ')+' Kč';}})()">
       </div>
       <div class="form-group">
         <label class="form-label">Měna</label>
@@ -5102,15 +5102,12 @@ function openAccModal(isLiab=false, editId=null) {
       <div class="form-group">
         <label class="form-label">Kreditní limit</label>
         <input type="number" class="form-input" id="a-cc-limit" value="${e&&e.creditLimit?e.creditLimit:''}" placeholder="50000" min="0"
-          oninput="(()=>{const bal=document.getElementById('a-bal');const rem=document.getElementById('a-cc-remaining');if(bal&&rem){rem.textContent=Math.max(0,parseFloat(this.value||0)-(parseFloat(bal.value)||0)).toLocaleString('cs-CZ')+' Kč';}})()">
+          oninput="(()=>{const bal=document.getElementById('a-bal');const sp=document.getElementById('a-cc-spent');if(bal&&sp){sp.textContent=Math.max(0,parseFloat(this.value||0)-(parseFloat(bal.value)||0)).toLocaleString('cs-CZ')+' Kč';}})()">
       </div>
-      ${e&&e.creditLimit?`<div style="display:flex;justify-content:space-between;padding:10px 14px;border-radius:10px;background:var(--surface2);margin-bottom:12px;font-size:13px;">
-        <span style="color:var(--text3);">Zbývající kredit:</span>
-        <span id="a-cc-remaining" style="font-weight:700;color:var(--success);">${Math.max(0,(e.creditLimit||0)-(e.balance||0)).toLocaleString('cs-CZ')} Kč</span>
-      </div>`:`<div style="padding:10px 14px;border-radius:10px;background:var(--surface2);margin-bottom:12px;font-size:13px;display:flex;justify-content:space-between;">
-        <span style="color:var(--text3);">Zbývající kredit:</span>
-        <span id="a-cc-remaining" style="font-weight:700;color:var(--success);">—</span>
-      </div>`}
+      <div style="display:flex;justify-content:space-between;padding:10px 14px;border-radius:10px;background:var(--surface2);margin-bottom:12px;font-size:13px;">
+        <span style="color:var(--text3);">Aktuální útrata:</span>
+        <span id="a-cc-spent" style="font-weight:700;color:var(--danger);">${e&&e.creditLimit?Math.max(0,(e.creditLimit||0)-(e.creditLimit-(e.balance||0))).toLocaleString('cs-CZ')+' Kč':'—'}</span>
+      </div>
       <div class="fr fr2">
         <div class="form-group">
           <label class="form-label">Den splatnosti (1-31)</label>
@@ -5150,7 +5147,14 @@ function saveAcc(){
     type:document.getElementById('a-type').value,
     icon:document.getElementById('a-icon').value.trim()||null,
     color:document.getElementById('a-color').value,
-    balance:parseFloat(document.getElementById('a-bal').value)||0,
+    balance:(()=>{
+      const raw=parseFloat(document.getElementById('a-bal').value)||0;
+      const type=document.getElementById('a-type').value;
+      const ccLimit=parseFloat(document.getElementById('a-cc-limit')?.value)||0;
+      // For credit cards: user enters remaining credit, balance (debt) = limit - remaining
+      if(type==='Kreditní karta'&&ccLimit>0) return Math.max(0,ccLimit-raw);
+      return raw;
+    })(),
     currency:document.getElementById('a-cur').value,
     interestRate:parseFloat(document.getElementById('a-rate').value)||null,
     isLiability:isLiab,
