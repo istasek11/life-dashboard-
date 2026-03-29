@@ -817,6 +817,18 @@ let D = (() => {
       if (!d.carLog) d.carLog = [];
       if (!d.cars) d.cars = [];
       if (!d.trips) d.trips = [];
+      // Migration: auto-create linked expenses for existing liabilities with monthlyPayment
+      (d.accounts||[]).filter(a=>a.isLiability&&a.monthlyPayment>0).forEach(a=>{
+        if(!d.recurringExpenses.find(e=>e.linkedDebtId===a.id)){
+          d.recurringExpenses.push({
+            id:(()=>{return 'e'+Math.random().toString(36).slice(2,10)})(),
+            name:a.name+' — splátka', groupId:null,
+            amount:a.monthlyPayment, currency:a.currency||'CZK',
+            autoRepeat:true, repeatEvery:1, createdMonth:null,
+            linkedDebtId:a.id, note:'Automaticky z dluhu'
+          });
+        }
+      });
       return d;
     }
     const old = localStorage.getItem('fa_v1');
