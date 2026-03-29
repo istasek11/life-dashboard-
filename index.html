@@ -792,6 +792,7 @@ let D = (() => {
       // Rename "Karta" to "Debetní karta"
       const pmKarta=d.paymentMethods.find(p=>p.id==='pm-karta'&&p.label==='Karta');
       if(pmKarta) pmKarta.label='Debetní karta';
+      if (!d.creditCards) d.creditCards = [];
       if (!d.settings.usdRate) d.settings.usdRate = 23.0;
       if (!d.settings.gbpRate) d.settings.gbpRate = 29.5;
       if (!d.settings.chfRate) d.settings.chfRate = 26.5;
@@ -4962,14 +4963,51 @@ function accounts() {
     // debt payoff
     const dpTxt=debtPayoffText(a);
     const dpHtml=dpTxt?`<div class="debt-payoff">${dpTxt}</div>`:'';
+    // Credit card extras
+    let ccHtml='';
+    if(a.type==='Kreditní karta'&&a.creditLimit){
+      const util=Math.round(a.balance/a.creditLimit*100);
+      const utilColor=util<=30?'var(--success)':util<=70?'var(--warning)':'var(--danger)';
+      const remaining=a.creditLimit-a.balance;
+      // Days until due
+      let dueTxt='';
+      if(a.dueDay){
+        const now=new Date();
+        let dueDate=new Date(now.getFullYear(),now.getMonth(),a.dueDay);
+        if(dueDate<=now) dueDate=new Date(now.getFullYear(),now.getMonth()+1,a.dueDay);
+        const daysLeft=Math.ceil((dueDate-now)/(1000*60*60*24));
+        const dueColor=daysLeft<=3?'var(--danger)':daysLeft<=7?'var(--warning)':'var(--text3)';
+        dueTxt=`<span style="font-size:11px;color:${dueColor};font-weight:600;">${daysLeft<=0?'⚠️ SPLATNÉ!':'📅 '+daysLeft+' dní do splatnosti'}</span>`;
+      }
+      // Monthly CC transactions
+      const ccTxs=D.transactions.filter(t=>t.type==='expense'&&t.accountId===a.id&&t.date&&t.date.startsWith(curMonth()));
+      const ccMonthTotal=ccTxs.reduce((s,t)=>s+toCZK(t.amount,t.currency),0);
+      // Interest cost if not paid
+      const monthlyInterest=a.interestRate?Math.round(a.balance*a.interestRate/100/12):0;
+      // Cashback
+      const cashback=a.cashbackRate?Math.round(ccMonthTotal*a.cashbackRate/100):0;
+      ccHtml=`
+        <div style="margin-top:6px;padding:8px 0;border-top:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px;">
+            <span style="color:var(--text3);">Využití limitu</span>
+            <span style="font-weight:700;color:${utilColor};">${util}% · zbývá ${fmtAmt(remaining,a.currency)}</span>
+          </div>
+          <div style="height:6px;background:var(--surface2);border-radius:100px;overflow:hidden;margin-bottom:6px;">
+            <div style="height:100%;width:${Math.min(100,util)}%;background:${utilColor};border-radius:100px;"></div>
+          </div>
+          ${dueTxt?`<div style="margin-bottom:4px;">${dueTxt}</div>`:''}
+          ${ccMonthTotal>0?`<div style="font-size:11px;color:var(--text3);">Tento měsíc: <strong>${fmtAmt(ccMonthTotal)}</strong>${cashback>0?' · cashback ~'+fmtAmt(cashback):''}</div>`:''}
+          ${monthlyInterest>0&&a.balance>0?`<div style="font-size:11px;color:var(--danger);">⚠️ Úrok pokud nesplatíš: ~${fmtAmt(monthlyInterest)}/měs</div>`:''}
+        </div>`;
+    }
     return `
       <div class="acc-card" style="border-left-color:${color};">
         <div class="acc-icon">${icon}</div>
         <div class="acc-info">
           <div class="acc-name">${a.name}</div>
-          <div class="acc-type">${a.type}</div>
+          <div class="acc-type">${a.type}${a.creditLimit?' · limit '+fmtAmt(a.creditLimit,a.currency):''}</div>
           ${a.interestRate?`<div class="${a.isLiability?'acc-rate-neg':'acc-rate-pos'}">${a.interestRate}% p.a. → ${a.isLiability?'−':'+'}${fmtAmt(yAmt)}/rok</div>`:''}
-          ${dpHtml}${plHtml}${trendHtml}${lastUpdHtml}
+          ${dpHtml}${plHtml}${trendHtml}${ccHtml}${lastUpdHtml}
         </div>
         <div class="acc-bal-wrap" style="flex-shrink:0;min-width:130px;" id="accbal-${a.id}">
           <div class="acc-balance ${a.isLiability?'neg':'pos'} acc-bal-click" onclick="inlineEditBalance('${a.id}')" title="Klikni pro rychlou editaci">${fmtAmt(a.balance,a.currency)}</div>
@@ -5053,6 +5091,8 @@ function openAccModal(isLiab=false, editId=null) {
         const invTypes=INV_TYPES;
         const w=document.getElementById('a-basis-wrap');
         if(w) w.style.display=invTypes.includes(this.value)?'block':'none';
+        const cc=document.getElementById('a-cc-fields');
+        if(cc) cc.style.display=this.value==='Kreditní karta'?'block':'none';
       })()">
         ${types.map(t=>`<option value="${t}" ${e&&e.type===t?'selected':''}>${ACC_TYPE_ICON[t]||''} ${t}</option>`).join('')}
       </select>
@@ -5085,6 +5125,29 @@ function openAccModal(isLiab=false, editId=null) {
     `<div class="form-group">
       <label class="form-label">Měsíční splátka <span class="text-muted">(volitelné — pro výpočet splacení)</span></label>
       <input type="number" class="form-input" id="a-payment" value="${e&&e.monthlyPayment?e.monthlyPayment:''}" placeholder="0" min="0" step="0.01">
+    </div>
+    <div id="a-cc-fields" style="display:${e&&e.type==='Kreditní karta'?'block':'none'};border-top:1px solid var(--border);padding-top:12px;margin-top:8px;">
+      <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px;">💎 Kreditní karta — rozšířené</div>
+      <div class="fr fr2">
+        <div class="form-group">
+          <label class="form-label">Kreditní limit</label>
+          <input type="number" class="form-input" id="a-cc-limit" value="${e&&e.creditLimit?e.creditLimit:''}" placeholder="50000" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Den splatnosti (1-31)</label>
+          <input type="number" class="form-input" id="a-cc-due" value="${e&&e.dueDay?e.dueDay:''}" placeholder="15" min="1" max="31">
+        </div>
+      </div>
+      <div class="fr fr2">
+        <div class="form-group">
+          <label class="form-label">Bezúročné období (dny)</label>
+          <input type="number" class="form-input" id="a-cc-grace" value="${e&&e.gracePeriod?e.gracePeriod:''}" placeholder="45" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cashback / odměny %</label>
+          <input type="number" class="form-input" id="a-cc-cashback" value="${e&&e.cashbackRate?e.cashbackRate:''}" placeholder="1" min="0" max="10" step="0.1">
+        </div>
+      </div>
     </div>`}
     <div class="form-group">
       <label class="form-label">Barva</label>
@@ -5117,6 +5180,10 @@ function saveAcc(){
     costBasis:!isLiab?(parseFloat(document.getElementById('a-basis')?.value)||null):null,
     targetBalance:!isLiab?(parseFloat(document.getElementById('a-target')?.value)||null):null,
     monthlyPayment:isLiab?(parseFloat(document.getElementById('a-payment')?.value)||null):null,
+    creditLimit:parseFloat(document.getElementById('a-cc-limit')?.value)||null,
+    dueDay:parseInt(document.getElementById('a-cc-due')?.value)||null,
+    gracePeriod:parseInt(document.getElementById('a-cc-grace')?.value)||null,
+    cashbackRate:parseFloat(document.getElementById('a-cc-cashback')?.value)||null,
   };
   if(editId){const i=D.accounts.findIndex(a=>a.id===editId);if(i>=0)D.accounts[i]=acc;}
   else D.accounts.push(acc);
