@@ -1017,7 +1017,7 @@ function togglePaid(id,m) {
       const txId=uid();
       const grp=e.groupId?D.expenseGroups.find(g=>g.id===e.groupId):null;
       openModal('💸 Zaznamenat jako transakci?',`
-        <p class="text-sm text-muted mb-3">Chceš zaplatit <strong>${e.name}</strong> (${fmtAmt(e.amount,e.currency)}) zapsat i do transakcí?</p>
+        <p class="text-sm text-muted mb-3">Chceš zaplatit <strong>${e.name}</strong> (${fmtAmt(expAmt(e),e.currency)}) zapsat i do transakcí?</p>
         <div class="form-group"><label class="form-label">Datum</label>
           <input type="date" class="form-input" id="rp-date" value="${today}"></div>
         <div class="form-group"><label class="form-label">Účet <span class="text-muted">(volitelné)</span></label>
@@ -1097,20 +1097,21 @@ function toggleSkip(id, m) {
   if (D.skippedMonths[key]) delete D.skippedMonths[key]; else D.skippedMonths[key] = true;
   save(); renderMain();
 }
+function expAmt(e){ return e.amount * ((e.myShare||100)/100); }
 function recTotal(m) {
   const exps = m ? expensesForMonth(m) : D.recurringExpenses;
-  return exps.filter(e=>e.amount>0 && (m?!isSkipped(e.id,m):true)).reduce((s,e)=>s+toCZK(e.amount,e.currency),0);
+  return exps.filter(e=>e.amount>0 && (m?!isSkipped(e.id,m):true)).reduce((s,e)=>s+toCZK(expAmt(e),e.currency),0);
 }
 function recPaid(m) {
   return expensesForMonth(m).filter(e=>isPaid(e.id,m)&&!isSkipped(e.id,m)).reduce((s,e)=>{
-    if(e.amount>0) return s+toCZK(e.amount,e.currency);
+    if(e.amount>0) return s+toCZK(expAmt(e),e.currency);
     const va=getMonthlyAmt(e.id,m); return s+(va?toCZK(va.amount,va.currency):0);
   },0);
 }
 function recAnnual() {
   return D.recurringExpenses.filter(e=>e.autoRepeat&&e.amount>0).reduce((s,e)=>{
     const freq = e.repeatEvery||1;
-    return s + toCZK(e.amount,e.currency)*(12/freq);
+    return s + toCZK(expAmt(e),e.currency)*(12/freq);
   },0);
 }
 
@@ -1615,14 +1616,14 @@ function dashboard() {
     <div class="card mb-4" style="padding:0;">
       <div class="section-head" style="padding:12px 16px 10px;">
         <div class="section-title">📅 Splatné do 7 dní</div>
-        <span class="text-muted text-sm">${upcoming.length} položek · ${fmtAmt(upcoming.reduce((s,e)=>s+toCZK(e.amount,e.currency),0))}</span>
+        <span class="text-muted text-sm">${upcoming.length} položek · ${fmtAmt(upcoming.reduce((s,e)=>s+toCZK(expAmt(e),e.currency),0))}</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 16px 14px;">
         ${upcoming.map(e=>`
           <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--warning);">
             <span style="font-size:11px;font-weight:700;color:var(--warning);min-width:22px;">${e.dueDay}.</span>
             <span style="font-size:13px;font-weight:500;">${e.name}</span>
-            <span style="font-size:13px;font-weight:700;color:var(--text2);margin-left:4px;">${fmtAmt(e.amount,e.currency)}</span>
+            <span style="font-size:13px;font-weight:700;color:var(--text2);margin-left:4px;">${fmtAmt(expAmt(e),e.currency)}</span>
           </div>`).join('')}
       </div>
     </div>`:'';
@@ -2173,7 +2174,8 @@ function expRow(e, cm) {
   if (skipped) {
     amtHtml = `<span class="exp-skip-badge">přeskočeno</span>`;
   } else if (!isVariable) {
-    amtHtml = fmtAmt(e.amount, e.currency);
+    const share=e.myShare||100;
+    amtHtml = share<100 ? `${fmtAmt(expAmt(e),e.currency)} <span class="text-muted text-sm" title="Celkem ${fmtAmt(e.amount,e.currency)}, můj podíl ${share}%">(${share}%)</span>` : fmtAmt(e.amount, e.currency);
   } else if (paid && varAmt) {
     amtHtml = `<span class="var-paid-amt">${fmtAmt(varAmt.amount, varAmt.currency)}</span>`;
   } else {
@@ -2259,7 +2261,7 @@ function renderComparison() {
           ${e.name}
           ${e.autoRepeat?`<span class="exp-auto-badge" style="margin-left:5px;">🔄</span>`:''}
         </td>
-        <td style="text-align:right;color:var(--text2);font-weight:600;">${e.amount>0?fmtAmt(e.amount,e.currency):'—'}</td>
+        <td style="text-align:right;color:var(--text2);font-weight:600;">${e.amount>0?fmtAmt(expAmt(e),e.currency):'—'}</td>
         ${months.map(m=>expCell(e,m)).join('')}
       </tr>`).join('');
   }
@@ -2435,9 +2437,15 @@ function openExpenseModal(prefill=null) {
         </select>
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Den splatnosti <span class="text-muted">(volitelné)</span></label>
-      <input type="number" class="form-input" id="ne-due" min="1" max="31" placeholder="např. 1, 15, 25…" value="${e&&e.dueDay?e.dueDay:''}">
+    <div class="fr fr2">
+      <div class="form-group">
+        <label class="form-label">Den splatnosti <span class="text-muted">(volitelné)</span></label>
+        <input type="number" class="form-input" id="ne-due" min="1" max="31" placeholder="např. 1, 15, 25…" value="${e&&e.dueDay?e.dueDay:''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Můj podíl % <span class="text-muted">(100 = celé platím já)</span></label>
+        <input type="number" class="form-input" id="ne-share" min="1" max="100" placeholder="100" value="${e&&e.myShare!=null&&e.myShare!==100?e.myShare:''}">
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">Způsob platby</label>
@@ -2494,6 +2502,7 @@ function saveExpense() {
     note:document.getElementById('ne-note').value.trim(),
     autoRepeat:document.getElementById('ne-auto').checked,
     repeatEvery:parseInt(document.getElementById('ne-freq')?.value)||1,
+    myShare:parseInt(document.getElementById('ne-share')?.value)||100,
     createdMonth: viewMonth
   };
   D.recurringExpenses.push(exp);
@@ -2515,6 +2524,7 @@ function saveEditExpense() {
   e.note=document.getElementById('ne-note').value.trim();
   e.autoRepeat=document.getElementById('ne-auto').checked;
   e.repeatEvery=parseInt(document.getElementById('ne-freq')?.value)||1;
+  e.myShare=parseInt(document.getElementById('ne-share')?.value)||100;
   save(); closeModal(); renderMain();
 }
 
