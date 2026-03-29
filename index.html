@@ -5669,7 +5669,13 @@ function emergency() {
   }
   const avgExp = activeM > 0 ? Math.round(totalExp / activeM) : 0;
   const target = avgExp * (ef.targetMonths || 3);
-  const current = toCZK(ef.currentAmount || 0, ef.currency);
+
+  // Auto-calculate from savings accounts
+  const savingTypes=['Spořicí účet','Termínovaný vklad'];
+  const savAccs=D.accounts.filter(a=>!a.isLiability&&savingTypes.includes(a.type));
+  const savTotal=savAccs.reduce((s,a)=>s+toCZK(a.balance,a.currency),0);
+  // Use savings accounts total if available, otherwise manual amount
+  const current = savAccs.length>0 ? savTotal : toCZK(ef.currentAmount || 0, ef.currency);
   const pct = target > 0 ? Math.min(Math.round(current/target*100),100) : 0;
   const monthsCovered = avgExp > 0 ? (current/avgExp).toFixed(1) : '?';
 
@@ -5702,11 +5708,12 @@ function emergency() {
       <div class="card dash-kpi">
         <div class="dash-kpi-label">Aktuální stav</div>
         <div class="dash-kpi-val" style="color:${ringColor}">${fmtAmt(current)}</div>
+        ${savAccs.length>0?`<div class="dash-kpi-sub text-muted">z ${savAccs.length} spořicích účtů</div>`:''}
       </div>
       <div class="card dash-kpi">
         <div class="dash-kpi-label">Cílová částka</div>
         <div class="dash-kpi-val">${fmtAmt(target)}</div>
-        <div class="dash-kpi-sub text-muted">${avgExp>0?'Ø měsíční výdaje: '+fmtAmt(avgExp):'Nemám data o výdajích'}</div>
+        <div class="dash-kpi-sub text-muted">${avgExp>0?'Ø výdaje: '+fmtAmt(avgExp)+'/měs':'Nemám data o výdajích'}</div>
       </div>
       <div class="card dash-kpi">
         <div class="dash-kpi-label">Pokryje</div>
@@ -5714,8 +5721,24 @@ function emergency() {
         <div class="dash-kpi-sub text-muted">Chybí: ${fmtAmt(Math.max(0,target-current))}</div>
       </div>
     </div>
+    ${savAccs.length>0?`
     <div class="card mb-4">
-      <div class="section-title mb-3">📝 Aktualizovat stav</div>
+      <div class="section-title mb-3">🏦 Propojené spořicí účty</div>
+      <p class="text-sm text-muted mb-3">Rezerva se automaticky počítá ze spořicích účtů v Majetku.</p>
+      ${savAccs.map(a=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:18px;">${a.icon||'💰'}</span>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${a.name}</div><div style="font-size:11px;color:var(--text3);">${a.type}${a.interestRate?' · '+a.interestRate+'% p.a.':''}</div></div>
+          <span style="font-size:15px;font-weight:700;color:var(--success);">${fmtAmt(a.balance,a.currency)}</span>
+        </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700;">
+        <span>Celkem</span><span style="color:var(--success);">${fmtAmt(savTotal)}</span>
+      </div>
+      <button class="btn btn-ghost btn-sm mt-2" onclick="goto('accounts')">Spravovat účty →</button>
+    </div>`:`
+    <div class="card mb-4">
+      <div class="section-title mb-3">📝 Ruční zadání</div>
+      <p class="text-sm text-muted mb-3">Přidej spořicí účet v <a href="#" onclick="goto('accounts');return false;" style="color:var(--primary);">Majetku</a> pro automatické propojení, nebo zadej ručně:</p>
       <div class="fr fr2">
         <div class="form-group">
           <label class="form-label">Částka ve fondu</label>
@@ -5727,7 +5750,7 @@ function emergency() {
         </div>
       </div>
       <button class="btn btn-primary mt-2" onclick="saveEmergencyFund()">Uložit</button>
-    </div>
+    </div>`}
     <div class="card">
       <div class="section-title mb-3">💡 Tipy</div>
       <ul style="font-size:13px;color:var(--text2);padding-left:20px;line-height:1.8;">
@@ -5735,7 +5758,7 @@ function emergency() {
         <li>Fond by měl být na <strong>spořicím účtu</strong> — rychle dostupný, ale oddělený.</li>
         <li>Doplňuj pravidelně, i malé částky se sčítají.</li>
         ${pct>=100?'<li>🎉 <strong>Gratulace!</strong> Máš plný nouzový fond!</li>':''}
-        ${pct<50?'<li>⚠️ Zkus měsíčně odkládat alespoň <strong>'+fmtAmt(Math.round((target-current)/12))+'</strong> — za rok budeš v cíli.</li>':''}
+        ${pct<50&&target>0?'<li>⚠️ Zkus měsíčně odkládat alespoň <strong>'+fmtAmt(Math.round((target-current)/12))+'</strong> — za rok budeš v cíli.</li>':''}
       </ul>
     </div>`;
 }
@@ -5882,6 +5905,38 @@ function investments() {
         </div>
       </div>
       ${rebalAlerts}
+      ${(()=>{
+        const invTypes=['Investice / ETF','Akcie','Kryptoměny','Penzijní spoření'];
+        const invAccs=D.accounts.filter(a=>!a.isLiability&&invTypes.includes(a.type));
+        if(!invAccs.length) return '';
+        const accTotal=invAccs.reduce((s,a)=>s+toCZK(a.balance,a.currency),0);
+        const totalCombined=totalVal+accTotal;
+        return`<div class="card mb-4">
+          <div class="section-title mb-3">🏦 Propojené investiční účty</div>
+          <p class="text-sm text-muted mb-3">Účty z Majetku typu Investice/ETF, Akcie, Krypto, Penze.</p>
+          ${invAccs.map(a=>{
+            const gain=a.costBasis?toCZK(a.balance,a.currency)-toCZK(a.costBasis,a.currency):null;
+            const gainPct2=a.costBasis&&a.costBasis>0?((a.balance/a.costBasis-1)*100).toFixed(1):null;
+            return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:18px;">${a.icon||ACC_TYPE_ICON[a.type]||'📈'}</span>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:600;">${a.name}</div>
+                <div style="font-size:11px;color:var(--text3);">${a.type}${a.interestRate?' · '+a.interestRate+'% p.a.':''}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:15px;font-weight:700;color:var(--success);">${fmtAmt(a.balance,a.currency)}</div>
+                ${gain!=null?`<div style="font-size:11px;color:${gain>=0?'var(--success)':'var(--danger)'};">${gain>=0?'+':''}${fmtAmt(gain)} (${gainPct2>0?'+':''}${gainPct2}%)</div>`:''}
+              </div>
+            </div>`;}).join('')}
+          <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700;">
+            <span>Celkem na účtech</span><span style="color:var(--success);">${fmtAmt(accTotal)}</span>
+          </div>
+          ${totalVal>0?`<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:var(--text2);border-top:1px solid var(--border);">
+            <span>Účty + pozice</span><span style="font-weight:700;">${fmtAmt(totalCombined)}</span>
+          </div>`:''}
+          <button class="btn btn-ghost btn-sm mt-2" onclick="goto('accounts')">Spravovat účty →</button>
+        </div>`;
+      })()}
       <div class="card mb-4">
         <div class="section-title mb-3">Pozice</div>
         ${inv.length===0?'<p class="text-muted text-sm">Přidej svou první investici.</p>':cards}
