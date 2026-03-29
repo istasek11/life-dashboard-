@@ -58,7 +58,7 @@ body::before { content:''; position:fixed; inset:0; z-index:-1; background: radi
 .nav-item .ni { font-size: 16px; width: 22px; text-align: center; }
 #sidebar-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 10px; }
 .sidebar-bottom { padding: 14px 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
-.main { margin-left: 230px; padding: 28px 36px; flex: 1; min-height: 100vh; }
+.main { margin-left: 230px; padding: 28px 36px; flex: 1; min-height: 100vh; overflow-x: hidden; }
 @keyframes fadeInPage { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .main.fade-in { animation: fadeInPage .25s ease-out both; }
 
@@ -640,6 +640,24 @@ select.form-input:focus, textarea.form-input:focus { border-color: var(--primary
   /* Summary bars stacking */
   .summary-bar { grid-template-columns: 1fr 1fr !important; gap: 8px; }
   .fr.fr2 { grid-template-columns: 1fr !important; }
+  /* Expense rows mobile */
+  .exp-row { padding: 10px 10px; gap: 0; flex-wrap: wrap; }
+  .exp-name { font-size: 13px; }
+  .exp-name-line { flex-wrap: wrap; gap: 4px; }
+  .exp-amount { font-size: 13px; min-width: 80px; margin-right: 4px; }
+  .exp-actions { opacity: 1 !important; gap: 2px; }
+  .exp-actions .btn { padding: 4px 6px !important; font-size: 10px !important; }
+  .exp-check { width: 20px; height: 20px; margin-right: 8px; }
+  .exp-group-header { padding: 8px 10px; font-size: 12px; }
+  /* Category bars mobile */
+  .cat-bar-row { flex-direction: column; gap: 2px; }
+  .cat-bar-val { font-size: 10px; }
+  /* Filter chips on mobile */
+  .chip { font-size: 11px !important; padding: 4px 10px !important; }
+  /* Safe area for notch */
+  .main { padding-top: 52px !important; }
+  /* Pin screen mobile */
+  #pin-screen input { width: 48px !important; height: 56px !important; font-size: 20px !important; }
 }
 @media (max-width: 360px) {
   [style*="grid-template-columns:repeat(5,1fr)"] { grid-template-columns: 1fr !important; }
@@ -2012,46 +2030,55 @@ function monthly() {
 
   return `
     <div class="page-head">
-      <div class="flex-c gap-3" style="flex-wrap:wrap;">
-        <div class="page-title">Měsíční výdaje</div>
-        ${monthlyViewMode==='checklist'?`
-          <div class="month-nav">
-            <button class="nav-arrow" onclick="changeViewMonth(-1)">‹</button>
-            <div class="mlabel">${fmtMonth(cm)}</div>
-            <button class="nav-arrow" onclick="changeViewMonth(1)">›</button>
-            ${!isCurrentM?`<button class="btn btn-ghost btn-sm" onclick="viewMonth=curMonth();renderMain()">Dnes</button>`:''}
-          </div>`:``}
-      </div>
+      <div class="page-title">Měsíční výdaje</div>
       <div class="flex-c gap-2" style="flex-wrap:wrap;">
-        <div class="view-toggle">
-          <button class="${monthlyViewMode==='checklist'?'active':''}" onclick="setMonthlyView('checklist')">📋 Přehled</button>
-          <button class="${monthlyViewMode==='comparison'?'active':''}" onclick="setMonthlyView('comparison')">📊 Srovnání</button>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="openGroupModal()">⚙ Skupiny</button>
+        <button class="btn btn-ghost btn-sm" onclick="openGroupModal()">⚙️</button>
         <button class="btn btn-primary" onclick="openExpenseModal()">＋ Výdaj</button>
       </div>
     </div>
 
-    ${monthlyViewMode==='checklist' ? `
-      <!-- Summary bar -->
-      <div class="summary-bar mb-3" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
-        <div class="sum-item"><div class="slabel">Celkem</div><div class="svalue">${fmtAmt(tot)}</div></div>
-        <div class="sum-item"><div class="slabel">Uhrazeno</div><div class="svalue pos">${fmtAmt(paid)}</div></div>
-        <div class="sum-item"><div class="slabel">Zbývá</div><div class="svalue ${rem>0?'neg':'pos'}">${fmtAmt(rem)}</div></div>
-        <div class="sum-item"><div class="slabel">Ročně celkem</div><div class="svalue" style="font-size:16px;color:var(--text2);">${fmtAmt(recAnnual())}</div></div>
-        <div style="min-width:160px;">
-          <div class="flex-b text-sm mb-2">
-            <span class="text-muted">Zaplaceno</span>
-            <span class="text-bold">${paidCount} / ${mExpsAll.length} · ${paidPct}%</span>
-          </div>
-          <div class="pbar" style="height:10px;">
-            <div class="pfill ${paidPct<50?'p-over':paidPct<100?'p-warn':'p-ok'}" style="width:${paidPct}%"></div>
-          </div>
+    ${monthlyViewMode==='checklist'?`
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:16px;">
+      <button style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onclick="changeViewMonth(-1)">‹</button>
+      <div style="text-align:center;min-width:0;">
+        <div style="font-size:18px;font-weight:800;white-space:nowrap;">${fmtMonth(cm)}</div>
+        ${!isCurrentM?`<button style="font-size:11px;color:var(--primary);background:none;border:none;cursor:pointer;padding:2px 0;" onclick="viewMonth=curMonth();renderMain()">← tento měsíc</button>`:''}
+      </div>
+      <button style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onclick="changeViewMonth(1)">›</button>
+    </div>
+
+    <div class="card mb-3" style="padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;">
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;">Celkem</div>
+          <div style="font-size:26px;font-weight:800;">${fmtAmt(tot)}</div>
+        </div>
+        <div style="text-align:right;">
+          <span style="font-size:12px;color:var(--text3);">${paidCount}/${mExpsAll.length} zaplaceno</span>
         </div>
       </div>
-      ${renderCategoryBars(cm)}
-      ${renderChecklist(cm)}
-    ` : renderComparison()}
+      <div style="height:8px;background:var(--surface2);border-radius:100px;overflow:hidden;margin-bottom:10px;">
+        <div style="height:100%;width:${paidPct}%;background:${paidPct>=100?'var(--success)':paidPct>=50?'var(--primary)':'var(--warning)'};border-radius:100px;transition:width .3s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span><span style="color:var(--success);">✓ ${fmtAmt(paid)}</span> zaplaceno</span>
+        <span><span style="color:${rem>0?'var(--danger)':'var(--success)'};">${fmtAmt(rem)}</span> zbývá</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <span class="chip ${monthlyViewMode==='checklist'?'active':''}" onclick="setMonthlyView('checklist')">📋 Výdaje</span>
+      <span class="chip ${monthlyViewMode==='comparison'?'active':''}" onclick="setMonthlyView('comparison')">📊 Srovnání</span>
+    </div>
+
+    ${renderCategoryBars(cm)}
+    ${renderChecklist(cm)}`
+    : `
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <span class="chip ${monthlyViewMode==='checklist'?'active':''}" onclick="setMonthlyView('checklist')">📋 Výdaje</span>
+      <span class="chip ${monthlyViewMode==='comparison'?'active':''}" onclick="setMonthlyView('comparison')">📊 Srovnání</span>
+    </div>
+    ${renderComparison()}`}
   `;
 }
 
@@ -2678,43 +2705,45 @@ function transactions() {
       </div>
     </details>
 
-    <!-- Filters - compact bar -->
-    <div class="card mb-3" style="padding:10px 14px;">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <div class="flex-c gap-1" style="flex-wrap:wrap;">
-          <span class="chip ${txF.type==='all'?'active':''}" onclick="setTxF('type','all')">Vše</span>
-          <span class="chip ${txF.type==='income'?'active':''}" onclick="setTxF('type','income')">📈 Příjmy</span>
-          <span class="chip ${txF.type==='expense'?'active':''}" onclick="setTxF('type','expense')">📉 Výdaje</span>
-          <span class="chip ${txF.type==='transfer'?'active':''}" onclick="setTxF('type','transfer')">↔ Převody</span>
-        </div>
-        <div style="width:1px;height:20px;background:var(--border);"></div>
-        <div class="flex-c gap-1" style="flex-wrap:wrap;">
-          <span class="chip ${txF.week==='this'?'active':''}" onclick="setTxF('week',txF.week==='this'?null:'this');if(txF.week)txF.month='';">Tento týden</span>
-          <span class="chip ${txF.week==='last'?'active':''}" onclick="setTxF('week',txF.week==='last'?null:'last');if(txF.week)txF.month='';">Min. týden</span>
-          <select class="form-input" style="width:auto;padding:4px 8px;font-size:11px;border-radius:16px;" onchange="txF.week=null;setTxF('month',this.value)">
-            <option value="">Vše</option>
-            ${months.map(m=>`<option value="${m}" ${!txF.week&&txF.month===m?'selected':''}>${fmtMonth(m)}</option>`).join('')}
-          </select>
-        </div>
+    <!-- Filters -->
+    <div class="card mb-3" style="padding:10px 12px;">
+      <div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;">
+        <span class="chip ${txF.type==='all'?'active':''}" onclick="setTxF('type','all')" style="white-space:nowrap;">Vše</span>
+        <span class="chip ${txF.type==='income'?'active':''}" onclick="setTxF('type','income')" style="white-space:nowrap;">Příjmy</span>
+        <span class="chip ${txF.type==='expense'?'active':''}" onclick="setTxF('type','expense')" style="white-space:nowrap;">Výdaje</span>
+        <span class="chip ${txF.type==='transfer'?'active':''}" onclick="setTxF('type','transfer')" style="white-space:nowrap;">Převody</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+        <select class="form-input" style="flex:1;min-width:100px;padding:6px 10px;font-size:12px;border-radius:10px;" onchange="txF.week=null;setTxF('month',this.value)">
+          <option value="">Všechny měsíce</option>
+          ${months.map(m=>`<option value="${m}" ${!txF.week&&txF.month===m?'selected':''}>${fmtMonth(m)}</option>`).join('')}
+        </select>
         ${D.accounts.filter(a=>!a.isLiability).length>1?`
-          <div style="width:1px;height:20px;background:var(--border);"></div>
-          <select class="form-input" style="width:auto;padding:4px 8px;font-size:11px;border-radius:16px;" onchange="txF.accountId=this.value||null;txPage=1;renderMain();">
+          <select class="form-input" style="flex:1;min-width:100px;padding:6px 10px;font-size:12px;border-radius:10px;" onchange="txF.accountId=this.value||null;txPage=1;renderMain();">
             <option value="">Všechny účty</option>
             ${D.accounts.filter(a=>!a.isLiability).map(a=>`<option value="${a.id}" ${txF.accountId===a.id?'selected':''}>${a.name}</option>`).join('')}
           </select>
         `:''}
       </div>
-      <div style="margin-top:8px;position:relative;">
+      <div style="margin-top:6px;position:relative;">
         <input id="tx-search-inp" type="text" class="form-input" placeholder="🔍 Hledat…" value="${txF.search||''}" style="padding:7px 12px;font-size:12px;" oninput="onTxSearch(this.value)">
         ${txF.search?`<button onclick="txF.search='';renderMain()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;">×</button>`:''}
       </div>
     </div>
     ${rows.length>0?`
-    <div style="display:flex;gap:16px;margin-bottom:12px;padding:10px 14px;background:var(--surface2);border-radius:10px;font-size:12px;">
-      <div><span style="color:var(--text3);">Příjmy</span> <strong class="amount-p">${fmtAmt(incT)}</strong></div>
-      <div><span style="color:var(--text3);">Výdaje</span> <strong class="amount-n">${fmtAmt(expT)}</strong></div>
-      <div><span style="color:var(--text3);">Bilance</span> <strong class="${incT-expT>=0?'amount-p':'amount-n'}">${fmtAmt(incT-expT)}</strong></div>
-      <div style="margin-left:auto;color:var(--text3);">${totalRows} záznamů</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div style="padding:8px 10px;background:var(--surface2);border-radius:8px;text-align:center;">
+        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;">Příjmy</div>
+        <div style="font-size:14px;font-weight:700;color:var(--success);white-space:nowrap;">${fmtAmt(incT)}</div>
+      </div>
+      <div style="padding:8px 10px;background:var(--surface2);border-radius:8px;text-align:center;">
+        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;">Výdaje</div>
+        <div style="font-size:14px;font-weight:700;color:var(--danger);white-space:nowrap;">${fmtAmt(expT)}</div>
+      </div>
+      <div style="padding:8px 10px;background:var(--surface2);border-radius:8px;text-align:center;">
+        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;">Bilance</div>
+        <div style="font-size:14px;font-weight:700;color:${incT-expT>=0?'var(--success)':'var(--danger)'};white-space:nowrap;">${fmtAmt(incT-expT)}</div>
+      </div>
     </div>
     ${(()=>{
       const expRows=rows.filter(t=>t.type==='expense');
@@ -11650,8 +11679,10 @@ function fitness() {
   // ═══ DAILY TAB ═══
   if(_fitTab==='daily'){
     // Last 14 days daily logs
-    const days14=[];
-    for(let i=0;i<14;i++){const d=new Date(today);d.setDate(d.getDate()-i);days14.push(d.toISOString().slice(0,10));}
+    const allLogDates=[...new Set([...Object.keys(D.dailyLogs||{}), ...(D.workouts||[]).map(w=>w.date)])].filter(Boolean).sort().reverse();
+    const days14=[todayStr];
+    for(let i=1;i<Math.max(14,allLogDates.length+1);i++){const d=new Date(today);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);if(i<14||allLogDates.includes(ds))days14.push(ds);}
+    days14.sort().reverse();
     const dayNames2=['Ne','Po','Út','St','Čt','Pá','So'];
 
     return `<div class="page-head"><div class="page-title">🏃 Sport & Zdraví</div></div>${tabs}
