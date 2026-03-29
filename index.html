@@ -1190,6 +1190,7 @@ const PAGES = [
   {id:'taxes',      icon:'🧾',label:'Daně',             group:'finance'},
   {id:'calendar',   icon:'📅',label:'Kalendář',         group:'finance'},
   {id:'compare',    icon:'⚖️',label:'Porovnání',        group:'finance'},
+  {id:'strategy',   icon:'🎯',label:'Strategie',          group:'finance'},
   {id:'fire',       icon:'🔥',label:'FIRE',             group:'finance'},
   {id:'rule503020', icon:'📐',label:'50/30/20',         group:'finance'},
   {id:'splits',     icon:'🤝',label:'Sdílené výdaje',   group:'finance'},
@@ -1383,7 +1384,7 @@ function closeModal() { document.getElementById('modal').classList.remove('open'
 // RENDER
 // ═══════════════════════════════════════════════════
 function renderMain() {
-  const fns={dashboard,monthly,transactions,budget,goals,accounts,income,report,debts,emergency,investments,taxes,calendar,compare,fire,rule503020,splits,business,bizprojects,bizclients,bizpricing,biztimetrack,bizinvoices,bizecommerce,bizcashflow,products,orders,bizcosts,pnl,fitness,lifegoals,education,overview,subs,carlog,travel,habits,journal,mood,sleep,water,reading,recipes,contacts,notes,passwords,birthdays,wishlist,movies,music,meditation,gratitude,ideas,garden,pets,wardrobe,marketplace,pomodoro,calculator,converter,qrgen,notepad,countdown,clipboard,kanban,weather,settings};
+  const fns={dashboard,monthly,transactions,budget,goals,accounts,income,report,debts,emergency,investments,taxes,calendar,compare,strategy,fire,rule503020,splits,business,bizprojects,bizclients,bizpricing,biztimetrack,bizinvoices,bizecommerce,bizcashflow,products,orders,bizcosts,pnl,fitness,lifegoals,education,overview,subs,carlog,travel,habits,journal,mood,sleep,water,reading,recipes,contacts,notes,passwords,birthdays,wishlist,movies,music,meditation,gratitude,ideas,garden,pets,wardrobe,marketplace,pomodoro,calculator,converter,qrgen,notepad,countdown,clipboard,kanban,weather,settings};
   const el=document.getElementById('app-main');
   el.classList.remove('fade-in');
   try {
@@ -6836,6 +6837,389 @@ function compare() {
 }
 
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// STRATEGY
+// ═══════════════════════════════════════════════════
+
+function _strategyData(){
+  // Strategy config — hardcoded financial plan
+  const STRAT_DEBTS = [
+    {key:'moneta1', name:'Moneta 1', origBal:35589, rate:0, minPay:4093, endLabel:'Prosinec 2026'},
+    {key:'moneta2', name:'Moneta 2', origBal:138088, rate:8.9, minPay:2910, endLabel:'2027–2028'},
+    {key:'auto', name:'Auto', origBal:203192, rate:8.1, minPay:3596, endLabel:'02/2032'},
+  ];
+  // Try to get live balances from D.debts
+  STRAT_DEBTS.forEach(sd=>{
+    const live=D.debts.find(d=>d.name.toLowerCase().includes(sd.key.replace(/\d/g,''))&&Math.abs(d.originalBalance-sd.origBal)<5000);
+    if(live){sd.bal=live.balance;sd.rate=live.rate||sd.rate;sd.liveId=live.id;}
+    else sd.bal=sd.origBal;
+  });
+  // Detect current phase
+  const m1=STRAT_DEBTS.find(d=>d.key==='moneta1');
+  const m2=STRAT_DEBTS.find(d=>d.key==='moneta2');
+  let phase=1;
+  if(m1.bal<=0) phase=2;
+  if(m1.bal<=0&&m2.bal<=0) phase=3;
+
+  // Allocation rules per phase
+  const ALLOC = {
+    1:[
+      {name:'Investice S&P 500',amount:10000,icon:'📈',color:'#10b981',rule:'DCA – pravidelný nákup, NETKNUTELNÉ'},
+      {name:'Rezerva',amount:10000,icon:'🛟',color:'#3b82f6',rule:'Automatický trvalý příkaz, NETKNUTELNÉ'},
+      {name:'Fond na byt',amount:6000,icon:'🏠',color:'#8b5cf6',rule:'Separátní účet, automatický převod'},
+      {name:'Buffer / přebytek',amount:3000,icon:'💰',color:'#64748b',rule:'Nepředvídané nebo mimořádné splátky'},
+    ],
+    2:[
+      {name:'Investice S&P 500',amount:10000,icon:'📈',color:'#10b981',rule:'Beze změny'},
+      {name:'Rezerva',amount:10000,icon:'🛟',color:'#3b82f6',rule:'Beze změny'},
+      {name:'Fond na byt',amount:9500,icon:'🏠',color:'#8b5cf6',rule:'+3 500 Kč z uvolněné splátky M1'},
+      {name:'Extra splátka M2',amount:3500,icon:'⚡',color:'#ef4444',rule:'Avalanche efekt na M2'},
+    ],
+    3:[
+      {name:'Investice S&P 500',amount:10000,icon:'📈',color:'#10b981',rule:'Trvalý DCA'},
+      {name:'Fond na byt',amount:15000,icon:'🏠',color:'#8b5cf6',rule:'Hlavní priorita'},
+      {name:'Rezerva',amount:13000,icon:'🛟',color:'#3b82f6',rule:'Doplnit na 500k'},
+      {name:'Buffer',amount:2000,icon:'💰',color:'#64748b',rule:'Minimum na nepředvídané'},
+    ],
+  };
+  const alloc=ALLOC[phase]||ALLOC[1];
+  const totalAlloc=alloc.reduce((s,a)=>s+a.amount,0);
+
+  // Goals with live data
+  const findAcc=(names)=>{
+    for(const n of names){const a=D.accounts.find(x=>x.name.toLowerCase().includes(n.toLowerCase()));if(a)return a;}
+    return null;
+  };
+  const reserveAcc=findAcc(['Trinity','Spořicí','Rezerva','spořicí']);
+  const investAcc=findAcc(['S&P','ETF','Investice','invest']);
+  const bytAcc=findAcc(['Byt','byt','fond']);
+
+  const GOALS=[
+    {name:'Splatit Moneta 1',target:0,current:Math.max(0,m1.origBal-m1.bal),total:m1.origBal,icon:'💳',color:'#ef4444',pred75:'Prosinec 2026',pred90:'Prosinec 2026',done:m1.bal<=0},
+    {name:'Splatit Moneta 2',target:0,current:Math.max(0,m2.origBal-m2.bal),total:m2.origBal,icon:'💳',color:'#f59e0b',pred75:'Červenec 2028',pred90:'Prosinec 2027',done:m2.bal<=0},
+    {name:'Rezerva 500k',target:500000,current:reserveAcc?reserveAcc.balance:236578,total:500000,icon:'🛟',color:'#3b82f6',pred75:'Květen 2028',pred90:'Únor 2028',done:false},
+    {name:'Investice S&P 150k+',target:150000,current:investAcc?investAcc.balance:62500,total:150000,icon:'📈',color:'#10b981',pred75:'Prosinec 2026',pred90:'Prosinec 2026',done:false},
+    {name:'Fond na byt 300k',target:300000,current:bytAcc?bytAcc.balance:0,total:300000,icon:'🏠',color:'#8b5cf6',pred75:'Říjen 2028',pred90:'Květen 2028',done:false},
+  ];
+  GOALS.forEach(g=>{if(g.target>0)g.done=g.current>=g.target;});
+
+  // Monthly review checklist — stored in D.strategyReview
+  if(!D.strategyReview) D.strategyReview={};
+  const cm=curMonth();
+  if(!D.strategyReview[cm]) D.strategyReview[cm]={};
+  const review=D.strategyReview[cm];
+
+  return {phase,alloc,totalAlloc,STRAT_DEBTS,GOALS,review,cm};
+}
+
+function strategyToggleReview(key){
+  const cm=curMonth();
+  if(!D.strategyReview) D.strategyReview={};
+  if(!D.strategyReview[cm]) D.strategyReview[cm]={};
+  D.strategyReview[cm][key]=!D.strategyReview[cm][key];
+  save();renderMain();
+}
+
+function strategy(){
+  const {phase,alloc,totalAlloc,STRAT_DEBTS,GOALS,review,cm}=_strategyData();
+
+  // Phase indicator
+  const phases=[
+    {n:1,label:'Stabilizace',period:'Dub–Pro 2026',desc:'Splácet M1, nastavit automatické převody, refinancovat'},
+    {n:2,label:'Akcelerace',period:'Led–Pro 2027',desc:'M1 splacena, avalanche na M2, fond na byt roste'},
+    {n:3,label:'Zrychlení',period:'Led 2028+',desc:'M2 splacena, maximální úspory, fond na byt a investice'},
+  ];
+  const phaseHTML=phases.map(p=>{
+    const active=p.n===phase;
+    const done=p.n<phase;
+    const col=done?'var(--success)':active?'var(--primary)':'var(--surface2)';
+    const textCol=done||active?'#fff':'var(--text3)';
+    return `<div style="flex:1;padding:14px;border-radius:12px;background:${col};color:${textCol};text-align:center;position:relative;${active?'box-shadow:0 0 20px '+col+'60;':''}">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;margin-bottom:4px;">${done?'✓ ':active?'► ':''}FÁZE ${p.n}</div>
+      <div style="font-size:15px;font-weight:800;">${p.label}</div>
+      <div style="font-size:11px;opacity:.8;margin-top:2px;">${p.period}</div>
+    </div>`;
+  }).join('');
+
+  // Allocation table
+  const allocHTML=alloc.map(a=>{
+    const pct=totalAlloc>0?Math.round(a.amount/totalAlloc*100):0;
+    return `<div style="display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:12px 16px;background:var(--surface2);border-radius:10px;border-left:4px solid ${a.color};">
+      <span style="font-size:20px;text-align:center;">${a.icon}</span>
+      <div>
+        <div style="font-weight:700;font-size:14px;">${a.name}</div>
+        <div style="font-size:11px;color:var(--text3);">${a.rule}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:18px;font-weight:800;color:${a.color};">${fmtAmt(a.amount)}</div>
+        <div style="font-size:11px;color:var(--text3);">${pct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Donut allocation chart (SVG)
+  const donutR=50,donutC=2*Math.PI*donutR;
+  let donutOffset=0;
+  const donutArcs=alloc.map(a=>{
+    const pct=a.amount/totalAlloc;
+    const dash=donutC*pct;
+    const arc=`<circle cx="60" cy="60" r="${donutR}" fill="none" stroke="${a.color}" stroke-width="18" stroke-dasharray="${dash.toFixed(1)} ${(donutC-dash).toFixed(1)}" stroke-dashoffset="${(-donutOffset).toFixed(1)}" style="transition:all .5s;"/>`;
+    donutOffset+=dash;
+    return arc;
+  }).join('');
+
+  // Goals progress
+  const goalsHTML=GOALS.map(g=>{
+    const pct=g.total>0?Math.min(100,Math.round(g.current/g.total*100)):0;
+    const statusCol=g.done?'var(--success)':pct>=60?'var(--primary)':pct>=30?'var(--warning)':'var(--danger)';
+    return `<div class="card" style="padding:14px 18px;margin-bottom:8px;border-left:4px solid ${g.color};">
+      <div class="flex-b" style="margin-bottom:8px;">
+        <div class="flex-c gap-2">
+          <span style="font-size:18px;">${g.icon}</span>
+          <div>
+            <div style="font-weight:700;font-size:14px;">${g.name} ${g.done?'<span style="color:var(--success);font-weight:800;">✓ SPLNĚNO</span>':''}</div>
+            <div style="font-size:11px;color:var(--text3);">75k: ${g.pred75} · 90k: ${g.pred90}</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:18px;font-weight:800;color:${statusCol};">${pct}%</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;height:10px;background:var(--surface2);border-radius:100px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${g.color};border-radius:100px;transition:width .6s;"></div>
+        </div>
+        <span style="font-size:12px;color:var(--text3);white-space:nowrap;">${fmtAmt(Math.round(g.current))} / ${fmtAmt(g.total)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Debts overview with countdown
+  const debtsHTML=STRAT_DEBTS.filter(d=>d.bal>0).map(d=>{
+    const paidPct=d.origBal>0?Math.min(100,Math.round((d.origBal-d.bal)/d.origBal*100)):0;
+    const monthsLeft=d.minPay>0?Math.ceil(d.bal/d.minPay):999;
+    return `<div style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--danger);margin-bottom:8px;">
+      <div>
+        <div style="font-weight:700;font-size:14px;">${d.name}</div>
+        <div style="font-size:12px;color:var(--text3);">Splátka ${fmtAmt(d.minPay)}/měs · úrok ${d.rate}% · splatnost ${d.endLabel}</div>
+        <div style="height:6px;background:var(--surface);border-radius:100px;overflow:hidden;margin-top:8px;">
+          <div style="height:100%;width:${paidPct}%;background:var(--success);border-radius:100px;"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Splaceno ${paidPct}% · zbývá ~${monthsLeft} měsíců</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:20px;font-weight:800;color:var(--danger);">${fmtAmt(Math.round(d.bal))}</div>
+        <div style="font-size:11px;color:var(--text3);">z ${fmtAmt(d.origBal)}</div>
+      </div>
+    </div>`;
+  }).join('')||`<div style="padding:20px;text-align:center;color:var(--success);font-weight:700;font-size:16px;">🎉 Všechny dluhy splaceny!</div>`;
+
+  // Monthly review checklist
+  const REVIEW_ITEMS=[
+    {key:'income',label:'Kolik přišlo tento měsíc? (celkový příjem)'},
+    {key:'transfers',label:'Proběhly automatické převody? (investice, rezerva, byt)'},
+    {key:'buffer',label:'Kolik zůstalo na Moneta? (buffer check — cíl ~70k)'},
+    {key:'extra',label:'Byl mimořádný příjem? → Alokovat podle pravidel'},
+    {key:'goals',label:'Aktuální stav cílů — zkontrolovat % splnění'},
+    {key:'phase',label:'Jsem ve správné fázi? → Kontrola alokace'},
+  ];
+  const isFirstWeek=new Date().getDate()<=7;
+  const doneCount=REVIEW_ITEMS.filter(i=>review[i.key]).length;
+  const reviewHTML=REVIEW_ITEMS.map(i=>{
+    const done=!!review[i.key];
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?'var(--success)10':'var(--surface2)'};border-radius:8px;cursor:pointer;margin-bottom:6px;${done?'opacity:.7;':''}" onclick="strategyToggleReview('${i.key}')">
+      <div style="width:24px;height:24px;border-radius:6px;border:2px solid ${done?'var(--success)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--success);flex-shrink:0;">${done?'✓':''}</div>
+      <span style="font-size:13px;${done?'text-decoration:line-through;color:var(--text3);':''}">${i.label}</span>
+    </div>`;
+  }).join('');
+
+  // Timeline chart — projected savings over time (SVG sparkline)
+  const timelineMonths=[];
+  const now=new Date();
+  for(let i=0;i<30;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
+    timelineMonths.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+  }
+  const reserveStart=_strategyData().GOALS.find(g=>g.name.includes('Rezerva'))?.current||236578;
+  const investStart=_strategyData().GOALS.find(g=>g.name.includes('Investice'))?.current||62500;
+  const bytStart=_strategyData().GOALS.find(g=>g.name.includes('byt'))?.current||0;
+  const projections={reserve:[],invest:[],byt:[]};
+  let rV=reserveStart,iV=investStart,bV=bytStart;
+  timelineMonths.forEach((m,idx)=>{
+    const p=idx<9?1:idx<21?2:3;
+    const al=p===1?{r:10000,i:10000,b:6000}:p===2?{r:10000,i:10000,b:9500}:{r:13000,i:10000,b:15000};
+    rV+=al.r;iV+=al.i;bV+=al.b;
+    projections.reserve.push(rV);projections.invest.push(iV);projections.byt.push(bV);
+  });
+  const maxVal=Math.max(...projections.reserve,...projections.invest,...projections.byt,500000);
+  const svgW=600,svgH=180;
+  function toPath(vals,col){
+    return vals.map((v,i)=>{
+      const x=i/(vals.length-1)*svgW;
+      const y=svgH-(v/maxVal*svgH);
+      return (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+  }
+  const targetLines=[
+    {val:500000,label:'Rezerva 500k',col:'#3b82f6'},
+    {val:300000,label:'Byt 300k',col:'#8b5cf6'},
+    {val:150000,label:'Investice 150k',col:'#10b981'},
+  ];
+  const targetLinesHTML=targetLines.map(t=>{
+    const y=(svgH-(t.val/maxVal*svgH)).toFixed(1);
+    return `<line x1="0" y1="${y}" x2="${svgW}" y2="${y}" stroke="${t.col}" stroke-width="1" stroke-dasharray="6,4" opacity=".5"/>
+      <text x="${svgW-5}" y="${parseFloat(y)-4}" fill="${t.col}" font-size="10" text-anchor="end" opacity=".7">${t.label}</text>`;
+  }).join('');
+
+  // Strategy rules
+  const RULES=[
+    {icon:'🔒',text:'Investice 10k a Rezerva 10k se NEŠKRTAJÍ — ani v těžkém měsíci'},
+    {icon:'📋',text:'Každý přebytek má pravidlo — nic nezůstává volně na běžném účtu'},
+    {icon:'🔄',text:'Po splacení dluhu se splátka NEPROMĚNÍ v spotřebu — okamžitě přesměrovat'},
+    {icon:'⚡',text:'Fáze se mění automaticky po splacení M1/M2'},
+    {icon:'📅',text:'Měsíční review je povinný — 1. v měsíci, 15 minut'},
+    {icon:'📊',text:'Kvartální bilance — každé 3 měsíce porovnat predikci vs. realitu'},
+  ];
+
+  // Income rules
+  const incomeRulesHTML=`
+    <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;margin-bottom:8px;border-left:4px solid var(--warning);">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">📉 Příjem pod 75k</div>
+      <div style="font-size:12px;color:var(--text3);">Škrtat odspodu: nejdřív Buffer → pak Fond na byt. Investice a Rezerva se NEŠKRTAJÍ.</div>
+    </div>
+    <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;margin-bottom:8px;border-left:4px solid var(--success);">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">📈 Příjem nad 75k</div>
+      <div style="font-size:12px;color:var(--text3);">Přebytek v pořadí: Fond na byt → Extra splátka M2 → Rezerva</div>
+    </div>
+    <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:4px solid #8b5cf6;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">🎁 Mimořádný příjem (bonus, extra faktura, Fuerto)</div>
+      <div style="font-size:12px;color:var(--text3);">Celý přebytek → Fond na byt nebo mimořádná splátka M2 (podle fáze)</div>
+    </div>`;
+
+  // Actions checklist for phase 1
+  if(!D.strategyActions) D.strategyActions={};
+  const ACTIONS_P1=[
+    {key:'callMoneta',text:'Zavolat na Monetu — zjistit podmínky předčasného splacení M2'},
+    {key:'refinM2',text:'Obejít 2–3 banky s nabídkou na refinancování M2 (138k)'},
+    {key:'refinAuto',text:'Obejít banky s nabídkou na refinancování Auto (203k)'},
+    {key:'openBytAcc',text:'Otevřít separátní účet "Fond na byt"'},
+    {key:'setupTransfers',text:'Nastavit 3 trvalé příkazy (investice, rezerva, byt)'},
+    {key:'startTracking',text:'Začít trackovat VŠECHNY příjmy a výdaje v dashboardu'},
+  ];
+  const actionsHTML=phase===1?ACTIONS_P1.map(a=>{
+    const done=!!D.strategyActions[a.key];
+    return `<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:${done?'var(--success)10':'var(--surface2)'};border-radius:8px;cursor:pointer;margin-bottom:4px;" onclick="(()=>{if(!D.strategyActions)D.strategyActions={};D.strategyActions['${a.key}']=!D.strategyActions['${a.key}'];save();renderMain();})()">
+      <div style="width:20px;height:20px;border-radius:5px;border:2px solid ${done?'var(--success)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--success);flex-shrink:0;">${done?'✓':''}</div>
+      <span style="font-size:13px;${done?'text-decoration:line-through;color:var(--text3);':''}">${a.text}</span>
+    </div>`;
+  }).join(''):'';
+
+  return `
+    <div class="page-head">
+      <div class="page-title">🎯 Finanční strategie</div>
+      <span class="chip" style="background:var(--primary);color:#fff;">Fáze ${phase}</span>
+    </div>
+
+    <!-- PHASE INDICATOR -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      ${phaseHTML}
+    </div>
+
+    <!-- ALLOCATION + DONUT -->
+    <div class="card mb-4">
+      <div class="section-title mb-3">📋 Měsíční alokace — Fáze ${phase}</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${allocHTML}
+          <div style="display:flex;justify-content:space-between;padding:10px 16px;border-top:2px solid var(--border);margin-top:4px;font-weight:800;">
+            <span>Celkem</span><span>${fmtAmt(totalAlloc)}/měsíc</span>
+          </div>
+        </div>
+        <div style="position:relative;width:140px;height:140px;flex-shrink:0;">
+          <svg width="140" height="140" style="transform:rotate(-90deg);">
+            ${donutArcs.replace(/cx="60"/g,'cx="70"').replace(/cy="60"/g,'cy="70"')}
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="font-size:16px;font-weight:800;">${fmtAmt(totalAlloc)}</div>
+            <div style="font-size:9px;color:var(--text3);">/MĚSÍC</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INCOME RULES -->
+    <div class="card mb-4">
+      <div class="section-title mb-3">⚖️ Pravidla při změně příjmu</div>
+      ${incomeRulesHTML}
+    </div>
+
+    <!-- DEBTS -->
+    <div class="card mb-4">
+      <div class="section-title mb-3">💳 Dluhy — stav</div>
+      ${debtsHTML}
+    </div>
+
+    <!-- GOALS -->
+    <div class="card mb-4">
+      <div class="flex-b mb-3">
+        <div class="section-title">🏆 Dlouhodobé cíle</div>
+        <span class="text-sm text-muted">${GOALS.filter(g=>g.done).length}/${GOALS.length} splněno</span>
+      </div>
+      ${goalsHTML}
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="card mb-4">
+      <div class="section-title mb-3">📈 Projekce (30 měsíců)</div>
+      <div style="overflow-x:auto;">
+        <svg width="${svgW}" height="${svgH+20}" style="width:100%;min-width:400px;">
+          ${targetLinesHTML}
+          <path d="${toPath(projections.reserve,'#3b82f6')}" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+          <path d="${toPath(projections.invest,'#10b981')}" fill="none" stroke="#10b981" stroke-width="2.5"/>
+          <path d="${toPath(projections.byt,'#8b5cf6')}" fill="none" stroke="#8b5cf6" stroke-width="2.5"/>
+          <text x="5" y="${svgH+14}" fill="var(--text3)" font-size="10">${timelineMonths[0]}</text>
+          <text x="${svgW/2}" y="${svgH+14}" fill="var(--text3)" font-size="10" text-anchor="middle">${timelineMonths[Math.floor(timelineMonths.length/2)]}</text>
+          <text x="${svgW-5}" y="${svgH+14}" fill="var(--text3)" font-size="10" text-anchor="end">${timelineMonths[timelineMonths.length-1]}</text>
+        </svg>
+      </div>
+      <div class="flex-c gap-4 mt-2" style="justify-content:center;">
+        <span style="font-size:12px;"><span style="color:#3b82f6;">━</span> Rezerva</span>
+        <span style="font-size:12px;"><span style="color:#10b981;">━</span> Investice</span>
+        <span style="font-size:12px;"><span style="color:#8b5cf6;">━</span> Fond na byt</span>
+      </div>
+    </div>
+
+    <!-- MONTHLY REVIEW -->
+    <div class="card mb-4" ${isFirstWeek?'style="border:2px solid var(--warning);"':''}>
+      <div class="flex-b mb-3">
+        <div class="section-title">${isFirstWeek?'⚠️':'📅'} Měsíční review — ${fmtMonth(cm)}</div>
+        <span class="text-sm ${doneCount===REVIEW_ITEMS.length?'text-success':'text-muted'}">${doneCount}/${REVIEW_ITEMS.length}</span>
+      </div>
+      ${isFirstWeek&&doneCount<REVIEW_ITEMS.length?'<div class="dash-alert warn mb-3">Je začátek měsíce — čas na review!</div>':''}
+      ${reviewHTML}
+    </div>
+
+    ${phase===1?`
+    <!-- PHASE 1 ACTIONS -->
+    <div class="card mb-4">
+      <div class="flex-b mb-3">
+        <div class="section-title">📝 Akce — Fáze 1</div>
+        <span class="text-sm text-muted">${ACTIONS_P1.filter(a=>D.strategyActions[a.key]).length}/${ACTIONS_P1.length}</span>
+      </div>
+      ${actionsHTML}
+    </div>`:''}
+
+    <!-- RULES -->
+    <div class="card mb-4">
+      <div class="section-title mb-3">📜 Pravidla strategie</div>
+      ${RULES.map(r=>`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <span style="font-size:16px;flex-shrink:0;">${r.icon}</span>
+        <span>${r.text}</span>
+      </div>`).join('')}
+    </div>
+  `;
+}
+
 // FIRE CALCULATOR
 // ═══════════════════════════════════════════════════
 let _fireMonthly = 0, _fireReturn = 7, _fireWithdraw = 4;
