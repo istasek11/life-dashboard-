@@ -14901,56 +14901,67 @@ function settings(){
       </div>
     </div>
     <div class="card mb-3">
-      <div class="section-title mb-3">🗑️ Správa dat — smazat data sekce</div>
-      <p class="text-sm text-muted mb-3">Vyber sekci, jejíž data chceš smazat. Ostatní data zůstanou nedotčena.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${[
-          {label:'Návyky',keys:['habitDefs','habitLog']},
-          {label:'Deník',keys:['journalEntries']},
-          {label:'Nálada',keys:['moodLog']},
-          {label:'Spánek',keys:['sleepLog']},
-          {label:'Pitný režim',keys:['waterLog']},
-          {label:'Denní log',keys:['dailyLogs'],reset:'{}'},
-          {label:'Čtení',keys:['books']},
-          {label:'Recepty',keys:['recipes']},
-          {label:'Kontakty',keys:['contacts']},
-          {label:'Poznámky',keys:['notes']},
-          {label:'Hesla',keys:['vault']},
-          {label:'Narozeniny',keys:['birthdays']},
-          {label:'Přání',keys:['wishlist']},
-          {label:'Filmy',keys:['movies']},
-          {label:'Hudba',keys:['musicList']},
-          {label:'Meditace',keys:['meditations']},
-          {label:'Vděčnost',keys:['gratitude']},
-          {label:'Nápady',keys:['ideas']},
-          {label:'Zahrada',keys:['plants']},
-          {label:'Mazlíčci',keys:['pets']},
-          {label:'Šatník',keys:['wardrobe']},
-          {label:'Tréninky',keys:['workouts']},
-          {label:'Váha',keys:['weightLog','bodyMeasurements']},
-          {label:'Transakce',keys:['transactions']},
-          {label:'Účty',keys:['accounts']},
-          {label:'Rozpočty',keys:['budgets']},
-          {label:'Cíle',keys:['goals']},
-          {label:'Předplatné',keys:['subscriptions']},
-          {label:'Pravidelné výdaje',keys:['recurringExpenses','expenseGroups']},
-          {label:'Biz náklady',keys:['bizCosts']},
-          {label:'Objednávky',keys:['bizOrders']},
-          {label:'Produkty',keys:['bizProducts']},
-          {label:'Projekty',keys:['bizProjects']},
-          {label:'Klienti',keys:['bizClients']},
-          {label:'Faktury',keys:['bizInvoices']},
-          {label:'Pomodoro',keys:['pomodoroSessions']},
-          {label:'Odpočty',keys:['countdowns']},
-          {label:'Schránka',keys:['snippets']},
-          {label:'Kanban',keys:['kanban','kanbanCols','kanbanTasks']},
-          {label:'QR historie',keys:['qrHistory']},
-          {label:'Splátky dluhů',keys:['debtPayments']},
-          {label:'Dividendy',keys:['dividends']},
-          {label:'Auto servis',keys:['carLog','cars']},
-          {label:'Vzdělání',keys:['eduCourses','eduSkills','eduCerts','eduResources','eduLog','eduPlan']},
-        ].map(s=>`<button class="btn btn-ghost btn-sm" style="font-size:11px;" onclick="if(confirm('Opravdu smazat všechna data sekce ${s.label}?')){${s.keys.map(k=>`D.${k}=${s.reset||'[]'};`).join('')}save();renderMain();}">${s.label} ×</button>`).join('')}
-      </div>
+      <div class="section-title mb-3">🗑️ Správa dat</div>
+      <p class="text-sm text-muted mb-3">Zelená = obsahuje data · Šedá = prázdné. Klikni na 🗑️ pro smazání.</p>
+      ${(()=>{
+        const sections=[
+          {label:'Transakce',icon:'💸',keys:['transactions']},
+          {label:'Účty',icon:'🏛️',keys:['accounts']},
+          {label:'Rozpočty',icon:'🎯',keys:['budgets']},
+          {label:'Cíle',icon:'🏦',keys:['goals']},
+          {label:'Pravidelné výdaje',icon:'🔄',keys:['recurringExpenses','expenseGroups']},
+          {label:'Předplatné',icon:'📋',keys:['subscriptions']},
+          {label:'Návyky',icon:'✅',keys:['habitDefs','habitLog']},
+          {label:'Deník',icon:'📝',keys:['journalEntries']},
+          {label:'Nálada',icon:'😊',keys:['moodLog']},
+          {label:'Spánek',icon:'😴',keys:['sleepLog']},
+          {label:'Pitný režim',icon:'💧',keys:['waterLog']},
+          {label:'Denní log',icon:'📅',keys:['dailyLogs'],reset:'{}',countFn:'Object.keys(D.dailyLogs||{}).length'},
+          {label:'Tréninky',icon:'🏃',keys:['workouts']},
+          {label:'Váha',icon:'⚖️',keys:['weightLog','bodyMeasurements']},
+          {label:'Čtení',icon:'📚',keys:['books']},
+          {label:'Recepty',icon:'🍳',keys:['recipes']},
+          {label:'Kontakty',icon:'📇',keys:['contacts']},
+          {label:'Poznámky',icon:'🗒️',keys:['notes']},
+          {label:'Hesla',icon:'🔑',keys:['vault']},
+          {label:'Narozeniny',icon:'🎂',keys:['birthdays']},
+          {label:'Přání',icon:'🎁',keys:['wishlist']},
+          {label:'Filmy',icon:'🎬',keys:['movies']},
+          {label:'Hudba',icon:'🎵',keys:['musicList']},
+          {label:'Meditace',icon:'🧘',keys:['meditations']},
+          {label:'Vděčnost',icon:'🙏',keys:['gratitude']},
+          {label:'Nápady',icon:'💡',keys:['ideas']},
+          {label:'Zahrada',icon:'🌱',keys:['plants']},
+          {label:'Mazlíčci',icon:'🐾',keys:['pets']},
+          {label:'Šatník',icon:'👔',keys:['wardrobe']},
+          {label:'Auto servis',icon:'🚗',keys:['carLog','cars']},
+          {label:'Vzdělání',icon:'🎓',keys:['eduCourses','eduSkills','eduCerts','eduResources','eduLog','eduPlan']},
+          {label:'Biz náklady',icon:'💸',keys:['bizCosts']},
+          {label:'Objednávky',icon:'🛒',keys:['bizOrders']},
+          {label:'Produkty',icon:'📦',keys:['bizProducts']},
+          {label:'Projekty',icon:'📁',keys:['bizProjects']},
+          {label:'Klienti',icon:'👥',keys:['bizClients']},
+          {label:'Faktury',icon:'🧾',keys:['bizInvoices']},
+          {label:'Pomodoro',icon:'🍅',keys:['pomodoroSessions']},
+          {label:'Odpočty',icon:'⏳',keys:['countdowns']},
+          {label:'Schránka',icon:'📋',keys:['snippets']},
+          {label:'Kanban',icon:'📌',keys:['kanban','kanbanCols','kanbanTasks']},
+          {label:'QR historie',icon:'📱',keys:['qrHistory']},
+          {label:'Splátky dluhů',icon:'💳',keys:['debtPayments']},
+          {label:'Dividendy',icon:'📈',keys:['dividends']},
+        ];
+        return sections.map(s=>{
+          const count=s.keys.reduce((sum,k)=>{const v=D[k];return sum+(Array.isArray(v)?v.length:v&&typeof v==='object'?Object.keys(v).length:0);},0);
+          const hasData=count>0;
+          return`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;margin-bottom:4px;background:${hasData?'rgba(16,185,129,.06)':'var(--surface2)'};">
+            <span style="font-size:16px;width:24px;text-align:center;">${s.icon}</span>
+            <span style="flex:1;font-size:13px;font-weight:${hasData?'600':'400'};color:${hasData?'var(--text)':'var(--text3)'};">${s.label}</span>
+            <span style="font-size:12px;font-weight:700;color:${hasData?'var(--success)':'var(--text3)'};;min-width:50px;text-align:right;">${hasData?count+' zázn.':'prázdné'}</span>
+            ${hasData?`<button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);opacity:.6;" title="Smazat ${s.label}" onclick="if(confirm('Opravdu smazat všechna data sekce ${s.label}? (${count} záznamů)')){${s.keys.map(k=>`D.${k}=${s.reset||'[]'};`).join('')}save();renderMain();}">🗑️</button>`
+            :`<span style="width:32px;"></span>`}
+          </div>`;
+        }).join('');
+      })()}
     </div>
     <div class="card mb-3">
       <div class="section-title mb-3">☁️ Cloud Sync — JSONBin.io</div>
