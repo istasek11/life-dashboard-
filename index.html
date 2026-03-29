@@ -817,13 +817,14 @@ let D = (() => {
       if (!d.carLog) d.carLog = [];
       if (!d.cars) d.cars = [];
       if (!d.trips) d.trips = [];
-      // Migration: auto-create linked expenses for existing liabilities with monthlyPayment
-      (d.accounts||[]).filter(a=>a.isLiability&&a.monthlyPayment>0).forEach(a=>{
+      // Migration: auto-create linked expenses for existing debts with minPayment
+      (d.debts||[]).filter(a=>a.minPayment>0).forEach(a=>{
         if(!d.recurringExpenses.find(e=>e.linkedDebtId===a.id)){
           d.recurringExpenses.push({
             id:(()=>{return 'e'+Math.random().toString(36).slice(2,10)})(),
             name:a.name+' — splátka', groupId:null,
-            amount:a.monthlyPayment, currency:a.currency||'CZK',
+            amount:a.minPayment, currency:a.currency||'CZK',
+            dueDay:a.dueDay||null,
             autoRepeat:true, repeatEvery:1, createdMonth:null,
             linkedDebtId:a.id, note:'Automaticky z dluhu'
           });
@@ -5776,12 +5777,21 @@ function saveDebt() {
   };
   if(editId) { const i=D.debts.findIndex(x=>x.id===editId); if(i>=0) D.debts[i]=obj; }
   else D.debts.push(obj);
+  // Sync linked recurring expense
+  if(obj.minPayment>0) {
+    const ex=D.recurringExpenses.find(e=>e.linkedDebtId===obj.id);
+    if(ex){ex.name=obj.name+' — splátka';ex.amount=obj.minPayment;ex.currency=obj.currency;ex.dueDay=obj.dueDay||null;}
+    else D.recurringExpenses.push({id:uid(),name:obj.name+' — splátka',groupId:null,amount:obj.minPayment,currency:obj.currency,dueDay:obj.dueDay||null,autoRepeat:true,repeatEvery:1,createdMonth:null,linkedDebtId:obj.id,note:'Automaticky z dluhu'});
+  } else {
+    D.recurringExpenses=D.recurringExpenses.filter(e=>e.linkedDebtId!==obj.id);
+  }
   save(); closeModal(); renderMain();
 }
 
 function delDebt(id) {
   const d = D.debts.find(x=>x.id===id);
   D.debts = D.debts.filter(x=>x.id!==id);
+  D.recurringExpenses = D.recurringExpenses.filter(e=>e.linkedDebtId!==id);
   save(); renderMain();
   if(d) pushUndo(`Dluh „${d.name}"`, ()=>{ D.debts.push(d); });
 }
