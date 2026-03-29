@@ -2659,51 +2659,25 @@ function transactions() {
       </div>
     </div>
 
-    <!-- Quick add - collapsible -->
-    <details class="card mb-3" style="padding:0;">
-      <summary style="padding:12px 16px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;user-select:none;">
-        <span>⚡ Rychlé přidání</span>
-        <span style="font-size:10px;color:var(--text3);font-weight:400;">více transakcí najednou</span>
-      </summary>
-      <div style="padding:0 16px 14px;">
-        <div class="flex-c gap-1 mb-2">
-          <button class="btn btn-sm" id="qa-btn-dnes" style="padding:4px 10px;font-size:12px;background:var(--primary);color:#fff;border-radius:6px;" onclick="setQaDate('today')">Dnes</button>
-          <button class="btn btn-ghost btn-sm" id="qa-btn-vcera" style="padding:4px 10px;font-size:12px;" onclick="setQaDate('yesterday')">Včera</button>
-          <input type="date" id="qa-date-input" class="form-input" style="padding:4px 8px;font-size:12px;width:130px;display:none;" onchange="_qaDate=this.value">
-          <button class="btn btn-ghost btn-sm" id="qa-btn-datum" style="padding:4px 8px;font-size:12px;" onclick="setQaDate('custom')">📅</button>
+    <!-- Quick add - clean & simple -->
+    <div class="card mb-3" style="padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:15px;">⚡</span>
+        <span style="font-size:14px;font-weight:700;flex:1;">Rychlý výdaj</span>
+        <div class="flex-c gap-1">
+          <button class="btn btn-sm" id="qa-btn-dnes" style="padding:4px 10px;font-size:11px;background:var(--primary);color:#fff;border-radius:8px;" onclick="setQaDate('today')">Dnes</button>
+          <button class="btn btn-ghost btn-sm" id="qa-btn-vcera" style="padding:4px 10px;font-size:11px;" onclick="setQaDate('yesterday')">Včera</button>
+          <input type="date" id="qa-date-input" class="form-input" style="padding:3px 6px;font-size:11px;width:120px;display:none;" onchange="_qaDate=this.value">
+          <button class="btn btn-ghost btn-sm" id="qa-btn-datum" style="padding:4px 8px;font-size:11px;" onclick="setQaDate('custom')">📅</button>
         </div>
-        <textarea id="quick-add-input" rows="3" placeholder="Kaufland 450&#10;Pizza Roma 380&#10;Benzin 800" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;line-height:1.6;" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();quickAddTx();}"></textarea>
-        <div class="flex-c gap-1 mt-2 mb-1" style="flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--text3);">Kat:</span>
-          ${allExpenseCats().slice(0,6).map((c,i)=>{
-            const active=_qaCat===c;
-            const esc=c.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-            return`<button id="qa-cat-${i}" class="btn btn-sm" data-cat="${esc}" style="font-size:10px;padding:2px 7px;${active?'background:var(--primary);color:#fff;border-color:var(--primary);':''}" onclick="setQaCat(this.dataset.cat)">${CAT_ICON[c]||''} ${c}</button>`;
-          }).join('')}
-          <button onclick="openCatPickerModal()" style="background:none;border:1px dashed var(--border);border-radius:20px;padding:2px 8px;font-size:10px;cursor:pointer;color:var(--text3);">Vše…</button>
-        </div>
-        ${D.accounts.filter(a=>!a.isLiability).length>0?`<div class="flex-c gap-1 mb-2" style="flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--text3);">Účet:</span>
-          ${D.accounts.filter(a=>!a.isLiability).map(a=>{
-            const active=_qaAcc===a.id;
-            return`<button id="qa-acc-${a.id}" class="btn btn-sm" style="font-size:10px;padding:2px 7px;${active?'background:var(--primary);color:#fff;border-color:var(--primary);':''}" onclick="setQaAcc('${a.id}')">${a.name}</button>`;
-          }).join('')}
-        </div>`:''}
-        ${(D.settings.favTxs||[]).length>0?`<div class="flex-c gap-1 mb-2" style="flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--text3);">★</span>
-          ${(D.settings.favTxs||[]).map(f=>`
-            <span style="display:inline-flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:20px;overflow:hidden;font-size:11px;">
-              <button onclick="applyFav('${f.id}')" style="background:none;border:none;cursor:pointer;padding:3px 8px;color:var(--text);">${CAT_ICON[f.category]||''} ${f.name} ${fmtAmt(f.amount)}</button>
-              <button onclick="delFav('${f.id}')" style="background:none;border:none;cursor:pointer;padding:3px 5px 3px 0;color:var(--text3);font-size:12px;">×</button>
-            </span>`).join('')}
-        </div>`:''}
-        <div class="flex-b">
-          <button class="btn btn-ghost btn-sm" onclick="saveFav()" style="font-size:10px;padding:3px 8px;">★ Uložit oblíbené</button>
-          <button class="btn btn-primary btn-sm" onclick="quickAddTx()">＋ Přidat</button>
-        </div>
-        <div id="qa-feedback" style="display:none;margin-top:8px;font-size:12px;font-weight:600;"></div>
       </div>
-    </details>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <textarea id="quick-add-input" rows="2" placeholder="Kaufland 450&#10;Pizza Roma 380&#10;Benzin 800" style="flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;background:var(--surface);color:var(--text);resize:none;font-family:inherit;line-height:1.6;" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();quickAddTx();}"></textarea>
+        <button class="btn btn-primary" onclick="quickAddTx()" style="padding:10px 16px;border-radius:10px;font-size:14px;font-weight:700;align-self:stretch;white-space:nowrap;">＋</button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:6px;">Jeden řádek = jeden výdaj. Napiš co + částku.</div>
+      <div id="qa-feedback" style="display:none;margin-top:8px;font-size:12px;font-weight:600;"></div>
+    </div>
 
     <!-- Filters -->
     <div class="card mb-3" style="padding:10px 12px;">
