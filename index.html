@@ -11465,6 +11465,48 @@ function editWardrobe(id) {
 // ═══════════════════════════════════════════════════
 const WORKOUT_TYPES = {run:'🏃 Běh',gym:'🏋️ Posilovna',bike:'🚴 Kolo',swim:'🏊 Plavání',yoga:'🧘 Jóga',hike:'🥾 Turistika',walk:'🚶 Chůze',hiit:'🔥 HIIT',stretch:'🤸 Strečink',other:'⚡ Jiné'};
 const FOOD_QUALITY = {great:'🟢 Výborná',good:'🟡 Dobrá',ok:'🟠 Průměrná',bad:'🔴 Špatná'};
+const DEFAULT_DAILY_GOALS = [
+  {id:'water', icon:'💧', label:'Voda', unit:'l', target:2.0, max:null, step:0.1, direction:'min'},
+  {id:'coffee', icon:'☕', label:'Kávy', unit:'', target:null, max:2, step:1, direction:'max'},
+  {id:'yerba', icon:'🧉', label:'Yerba Maté', unit:'', target:null, max:3, step:1, direction:'max'},
+  {id:'steps', icon:'🚶', label:'Chůze', unit:'km', target:5, max:null, step:0.5, direction:'min'},
+  {id:'sleep_hours', icon:'😴', label:'Spánek', unit:'h', target:7, max:null, step:0.5, direction:'min'},
+  {id:'workout', icon:'🏃', label:'Trénink', unit:'', target:1, max:null, step:1, direction:'min'},
+];
+function getDailyGoals(){
+  if(!D.settings.dailyGoals){
+    D.settings.dailyGoals=DEFAULT_DAILY_GOALS.map(g=>({...g}));
+  }
+  return D.settings.dailyGoals;
+}
+function dailyScore(date){
+  const dl=getDailyLog(date);
+  const goals=getDailyGoals();
+  const wk=(D.workouts||[]).filter(w=>w.date===date).length;
+  let passed=0,total=0;
+  goals.forEach(g=>{
+    let val=g.id==='workout'?wk:g.id==='sleep_hours'?(dl.sleepTo&&dl.sleepFrom?calcSleepHours(dl.sleepFrom,dl.sleepTo):null):(dl[g.id]||0);
+    if(val===null||val===undefined) return;
+    total++;
+    if(g.direction==='min'&&g.target&&val>=g.target) passed++;
+    else if(g.direction==='max'&&g.max!=null&&val<=g.max) passed++;
+    else if(g.direction==='min'&&!g.target) passed++; // no target = always pass
+  });
+  return {passed,total,pct:total>0?Math.round(passed/total*100):0};
+}
+function goalStatus(g,val){
+  if(val===null||val===undefined) return {color:'var(--text3)',icon:'○',text:'—'};
+  if(g.direction==='min'){
+    if(g.target&&val>=g.target) return {color:'var(--success)',icon:'✓',text:'splněno'};
+    if(g.target&&val>=g.target*0.5) return {color:'var(--warning)',icon:'◑',text:Math.round(val/g.target*100)+'%'};
+    return {color:'var(--danger)',icon:'✗',text:Math.round((val/(g.target||1))*100)+'%'};
+  }
+  if(g.direction==='max'){
+    if(g.max!=null&&val<=g.max) return {color:'var(--success)',icon:'✓',text:'OK'};
+    return {color:'var(--danger)',icon:'✗',text:'překročeno'};
+  }
+  return {color:'var(--text3)',icon:'○',text:'—'};
+}
 let _fitTab='overview'; // overview | workouts | daily | body | records
 
 function fitness() {
@@ -11668,25 +11710,70 @@ function fitness() {
         </div>
       </div>
 
-      <div class="card"><div class="section-title mb-3">📋 Posledních 14 dní</div>
-        <div style="overflow-x:auto;"><table style="width:100%;font-size:11px;border-collapse:collapse;">
-          <thead><tr style="border-bottom:2px solid var(--border);text-align:center;">
-            <th style="text-align:left;padding:6px;">Den</th><th>💧</th><th>☕</th><th>🧉</th><th>🚶 km</th><th>🍽️</th><th>😴</th><th>🏃</th>
-          </tr></thead>
-          <tbody>
-          ${days14.map(d=>{const dl2=getDailyLog(d);const sh=dl2.sleepTo&&dl2.sleepFrom?calcSleepHours(dl2.sleepFrom,dl2.sleepTo):null;const wks=wk.filter(w=>w.date===d).length;const isToday=d===todayStr;const dn=dayNames2[new Date(d).getDay()];
-          return`<tr style="border-bottom:1px solid var(--border);${isToday?'background:var(--primary)10;font-weight:600;':''}text-align:center;">
-            <td style="text-align:left;padding:6px;">${dn} ${d.slice(5)}</td>
-            <td style="color:${(dl2.water||0)>=2?'var(--success)':(dl2.water||0)>=1?'var(--warning)':'var(--text3)'};">${dl2.water?(dl2.water).toFixed(1):'—'}</td>
-            <td>${dl2.coffee||'—'}</td>
-            <td>${dl2.yerba||'—'}</td>
-            <td>${dl2.steps||'—'}</td>
-            <td>${dl2.food?{great:'🟢',good:'🟡',ok:'🟠',bad:'🔴'}[dl2.food]||'—':'—'}</td>
-            <td style="color:${sh!=null?(sh>=7?'var(--success)':sh>=5?'var(--warning)':'var(--danger)'):'var(--text3)'};">${sh!=null?sh+'h':'—'}</td>
-            <td style="color:${wks>0?'var(--success)':'var(--text3)'};">${wks>0?wks+'×':'—'}</td>
-          </tr>`;}).join('')}
-          </tbody>
-        </table></div>
+      <div class="card mb-4">
+        <div class="flex-b mb-3"><div class="section-title">🎯 Dnešní cíle</div>
+          <span style="font-size:12px;font-weight:700;color:${(()=>{const s=dailyScore(todayStr);return s.pct>=80?'var(--success)':s.pct>=50?'var(--warning)':'var(--danger)';})()};">${dailyScore(todayStr).passed}/${dailyScore(todayStr).total} splněno</span>
+        </div>
+        ${getDailyGoals().map(g=>{
+          const wkToday=wk.filter(w=>w.date===todayStr).length;
+          const val=g.id==='workout'?wkToday:g.id==='sleep_hours'?(dl.sleepTo&&dl.sleepFrom?calcSleepHours(dl.sleepFrom,dl.sleepTo):null):(dl[g.id]||0);
+          const st=goalStatus(g,val);
+          const targetLabel=g.direction==='min'?(g.target?'min. '+g.target+' '+g.unit:'—'):(g.max!=null?'max. '+g.max+' '+g.unit:'—');
+          const pct=g.direction==='min'&&g.target?Math.min(100,Math.round((val||0)/g.target*100)):null;
+          return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:20px;width:28px;text-align:center;">${g.icon}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                <span style="font-size:13px;font-weight:600;">${g.label}</span>
+                <span style="font-size:12px;color:var(--text3);">${targetLabel}</span>
+              </div>
+              ${pct!=null?`<div style="height:4px;background:var(--surface2);border-radius:100px;margin-top:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${st.color};border-radius:100px;transition:width .3s;"></div></div>`:''}
+            </div>
+            <div style="text-align:right;min-width:50px;">
+              <div style="font-size:16px;font-weight:800;color:${st.color};">${val!=null?val+(g.unit?' '+g.unit:''):'—'}</div>
+              <div style="font-size:9px;color:${st.color};">${st.text}</div>
+            </div>
+            <span style="font-size:16px;color:${st.color};">${st.icon}</span>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="card mb-4">
+        <div class="section-title mb-3">📋 Posledních 14 dní</div>
+        ${days14.map(d=>{const sc=dailyScore(d);const isToday=d===todayStr;const dn=dayNames2[new Date(d).getDay()];const dl2=getDailyLog(d);const hasData=Object.keys(dl2).length>0||wk.some(w=>w.date===d);
+        return hasData||isToday?`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);${isToday?'background:var(--primary)08;margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:8px;':''}">
+          <div style="width:60px;font-size:12px;${isToday?'font-weight:700;color:var(--primary);':'color:var(--text2);'}">${isToday?'▶ ':' '}${dn} ${d.slice(8)}.${d.slice(5,7)}.</div>
+          <div style="flex:1;display:flex;gap:6px;flex-wrap:wrap;">
+            ${getDailyGoals().map(g=>{
+              const wkD=wk.filter(w=>w.date===d).length;
+              const v=g.id==='workout'?wkD:g.id==='sleep_hours'?(dl2.sleepTo&&dl2.sleepFrom?calcSleepHours(dl2.sleepFrom,dl2.sleepTo):null):(dl2[g.id]||0);
+              const s=goalStatus(g,v);
+              return v||v===0?`<span style="font-size:10px;padding:2px 6px;border-radius:100px;background:${s.color}15;color:${s.color};font-weight:600;" title="${g.label}: ${v}${g.unit?g.unit:''}">${g.icon}${v}</span>`:'';
+            }).join('')}
+            ${dl2.food?`<span style="font-size:10px;padding:2px 6px;border-radius:100px;background:var(--surface2);">${{great:'🟢',good:'🟡',ok:'🟠',bad:'🔴'}[dl2.food]||''}</span>`:''}
+          </div>
+          <div style="width:50px;text-align:right;">
+            <span style="font-size:11px;font-weight:700;color:${sc.pct>=80?'var(--success)':sc.pct>=50?'var(--warning)':sc.total>0?'var(--danger)':'var(--text3)'};">${sc.total>0?sc.pct+'%':'—'}</span>
+          </div>
+        </div>`:'';}).join('')}
+      </div>
+
+      <div class="card">
+        <div class="flex-b mb-3"><div class="section-title">⚙️ Upravit cíle</div></div>
+        <p class="text-sm text-muted mb-3">Nastav si denní limity. "Min" = musíš dosáhnout, "Max" = nesmíš překročit.</p>
+        ${getDailyGoals().map((g,i)=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:16px;">${g.icon}</span>
+            <span style="font-size:12px;font-weight:600;width:80px;">${g.label}</span>
+            <select class="form-input" style="width:70px;padding:3px 6px;font-size:11px;" onchange="D.settings.dailyGoals[${i}].direction=this.value;save();renderMain();">
+              <option value="min" ${g.direction==='min'?'selected':''}>Min</option>
+              <option value="max" ${g.direction==='max'?'selected':''}>Max</option>
+            </select>
+            <input type="number" class="form-input" style="width:60px;padding:3px 6px;font-size:12px;" value="${g.direction==='min'?(g.target||''):(g.max!=null?g.max:'')}" step="${g.step}" placeholder="—"
+              onchange="if(D.settings.dailyGoals[${i}].direction==='min')D.settings.dailyGoals[${i}].target=parseFloat(this.value)||null;else D.settings.dailyGoals[${i}].max=parseFloat(this.value);save();renderMain();">
+            <span style="font-size:11px;color:var(--text3);width:20px;">${g.unit}</span>
+          </div>
+        `).join('')}
       </div>`;
   }
 
