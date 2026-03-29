@@ -1084,10 +1084,10 @@ function expensesForMonth(m) {
   return D.recurringExpenses.filter(e => {
     if (!e.autoRepeat) return !e.createdMonth || e.createdMonth === m;
     if (!e.createdMonth) return true; // legacy: always show
-    const freq = e.repeatEvery || 1;
-    if (freq === 1) return true;
     const diff = monthDiff(e.createdMonth, m);
-    return diff >= 0 && diff % freq === 0;
+    if (diff < 0) return false; // not yet started
+    const freq = e.repeatEvery || 1;
+    return freq === 1 || diff % freq === 0;
   });
 }
 function isSkipped(id, m) { return !!(D.skippedMonths && D.skippedMonths[id+'|'+m]); }
