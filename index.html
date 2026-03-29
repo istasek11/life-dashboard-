@@ -818,6 +818,7 @@ let D = (() => {
       if (!d.cars) d.cars = [];
       if (!d.trips) d.trips = [];
       // Migration: auto-create linked expenses for existing debts with minPayment
+      const _migMonth=new Date().toISOString().slice(0,7);
       (d.debts||[]).filter(a=>a.minPayment>0).forEach(a=>{
         if(!d.recurringExpenses.find(e=>e.linkedDebtId===a.id)){
           d.recurringExpenses.push({
@@ -825,7 +826,7 @@ let D = (() => {
             name:a.name+' — splátka', groupId:null,
             amount:a.minPayment, currency:a.currency||'CZK',
             dueDay:a.dueDay||null,
-            autoRepeat:true, repeatEvery:1, createdMonth:null,
+            autoRepeat:true, repeatEvery:1, createdMonth:_migMonth,
             linkedDebtId:a.id, note:'Automaticky z dluhu'
           });
         }
@@ -5781,7 +5782,7 @@ function saveDebt() {
   if(obj.minPayment>0) {
     const ex=D.recurringExpenses.find(e=>e.linkedDebtId===obj.id);
     if(ex){ex.name=obj.name+' — splátka';ex.amount=obj.minPayment;ex.currency=obj.currency;ex.dueDay=obj.dueDay||null;}
-    else D.recurringExpenses.push({id:uid(),name:obj.name+' — splátka',groupId:null,amount:obj.minPayment,currency:obj.currency,dueDay:obj.dueDay||null,autoRepeat:true,repeatEvery:1,createdMonth:null,linkedDebtId:obj.id,note:'Automaticky z dluhu'});
+    else D.recurringExpenses.push({id:uid(),name:obj.name+' — splátka',groupId:null,amount:obj.minPayment,currency:obj.currency,dueDay:obj.dueDay||null,autoRepeat:true,repeatEvery:1,createdMonth:curMonth(),linkedDebtId:obj.id,note:'Automaticky z dluhu'});
   } else {
     D.recurringExpenses=D.recurringExpenses.filter(e=>e.linkedDebtId!==obj.id);
   }
