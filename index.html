@@ -1224,8 +1224,9 @@ let _navOpen={};
 
 var _dragSection=null, _dragItem=null;
 function renderNav() {
+  const hidden=D.settings&&D.settings.hiddenPages?D.settings.hiddenPages:[];
   const groups={};
-  PAGES.forEach(p=>{ if(!groups[p.group]) groups[p.group]=[]; groups[p.group].push(p); });
+  PAGES.filter(p=>!hidden.includes(p.id)).forEach(p=>{ if(!groups[p.group]) groups[p.group]=[]; groups[p.group].push(p); });
 
   // Custom group order
   if(!D.settings) D.settings={};
@@ -14901,6 +14902,33 @@ function settings(){
       </div>
     </div>
     <div class="card mb-3">
+      <div class="section-title mb-3">👁️ Zobrazené sekce</div>
+      <p class="text-sm text-muted mb-3">Skryj sekce které nepoužíváš. Skryté sekce zmizí ze sidebaru, ale data zůstanou.</p>
+      ${(()=>{
+        const hidden=D.settings.hiddenPages||[];
+        const byGroup={};
+        PAGES.filter(p=>p.id!=='settings'&&p.id!=='dashboard').forEach(p=>{
+          if(!byGroup[p.group])byGroup[p.group]=[];
+          byGroup[p.group].push(p);
+        });
+        const groupIcons={finance:'💰',podnikání:'🏪',osobní:'👤',nástroje:'🔧'};
+        return Object.entries(byGroup).map(([g,pages])=>`
+          <div style="margin-bottom:12px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px;">${groupIcons[g]||''} ${g}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              ${pages.map(p=>{
+                const isHidden=hidden.includes(p.id);
+                return`<button style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid ${isHidden?'var(--border)':'var(--success)'};background:${isHidden?'transparent':'rgba(16,185,129,.1)'};color:${isHidden?'var(--text3)':'var(--text)'};opacity:${isHidden?'.5':'1'};transition:all .15s;" onclick="togglePageVisibility('${p.id}')">${p.icon} ${p.label}</button>`;
+              }).join('')}
+            </div>
+          </div>`).join('');
+      })()}
+      <div class="flex-c gap-2 mt-2 mb-3">
+        <button class="btn btn-ghost btn-sm" onclick="D.settings.hiddenPages=PAGES.filter(p=>p.id!=='settings'&&p.id!=='dashboard').map(p=>p.id);save();renderNav();renderMain();">Skrýt vše</button>
+        <button class="btn btn-ghost btn-sm" onclick="D.settings.hiddenPages=[];save();renderNav();renderMain();">Zobrazit vše</button>
+      </div>
+    </div>
+    <div class="card mb-3">
       <div class="section-title mb-3">🗑️ Správa dat</div>
       <p class="text-sm text-muted mb-3">Zelená = obsahuje data · Šedá = prázdné. Klikni na 🗑️ pro smazání.</p>
       ${(()=>{
@@ -15127,6 +15155,13 @@ function importJSON(e){
   reader.readAsText(file);e.target.value='';
 }
 function clearAll(){if(!confirm('⚠️ Smazat VŠECHNA data?'))return;if(!confirm('Opravdu vše?'))return;D=JSON.parse(JSON.stringify(DEFAULTS));save();renderMain();}
+function togglePageVisibility(pid){
+  if(!D.settings.hiddenPages) D.settings.hiddenPages=[];
+  const idx=D.settings.hiddenPages.indexOf(pid);
+  if(idx>=0) D.settings.hiddenPages.splice(idx,1);
+  else D.settings.hiddenPages.push(pid);
+  save(); renderNav(); renderMain();
+}
 function saveCloudSettings(){
   D.settings.cloudKey=(document.getElementById('cloud-key').value||'').trim();
   D.settings.cloudBinId=(document.getElementById('cloud-bin').value||'').trim();
