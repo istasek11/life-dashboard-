@@ -1400,7 +1400,7 @@ function renderMain() {
 // ═══════════════════════════════════════════════════
 // DASHBOARD DRAG-AND-DROP
 // ═══════════════════════════════════════════════════
-const DASH_SECTION_ORDER = ['spending','kpi','savingsring','taxforecast','health','progress','chart','donut','ytd','upcoming','accounts'];
+const DASH_SECTION_ORDER = ['kpi','savingsring','taxforecast','health','progress','chart','donut','ytd','upcoming','accounts','spending'];
 let _dashDragSrc = null;
 
 function getDashOrder() {
@@ -1783,14 +1783,8 @@ function dashboard() {
     const dayOfMonth=now.getDate();
     const daysLeft=daysInMonth-dayOfMonth+1;
 
-    // Budget: income - fixed expenses - standing orders - buffer
-    const defaultIncome=75000;
-    const fixedExpenses=recTotal(cm); // recurring/fixed from the monthly expenses section
-    const standingOrders=26000; // trvalé příkazy (investice+rezerva+byt)
-    const bufferAmount=3000;
-    // Use actual income if available, else default
-    const monthIncome=iTot>0?iTot:defaultIncome;
-    const spendingBudget=Math.max(0,monthIncome-fixedExpenses-standingOrders-bufferAmount);
+    // Budget: user-set or default 17640
+    const spendingBudget=D.settings.spendingBudget||17640;
     const weeklyBudget=Math.round(spendingBudget/4);
 
     // Actual spending: manual expense transactions this month (NOT recurring)
@@ -1852,7 +1846,10 @@ function dashboard() {
     return `<div class="card mb-4" style="border-left:4px solid ${barCol};">
       <div class="flex-b mb-2">
         <div class="section-title">💸 Útrata měsíce</div>
-        <button class="btn btn-primary btn-sm" onclick="openTxModal(null,'expense')" style="font-size:12px;">+ Výdaj</button>
+        <div class="flex-c gap-2">
+          <button class="btn btn-ghost btn-sm" onclick="(()=>{const v=prompt('Měsíční budget na útratu (Kč):',D.settings.spendingBudget||17640);if(v!==null&&!isNaN(v)){D.settings.spendingBudget=parseInt(v);save();renderMain();}})()" style="font-size:11px;" title="Nastavit budget">⚙️ ${fmtAmt(spendingBudget)}</button>
+          <button class="btn btn-primary btn-sm" onclick="openTxModal(null,'expense')" style="font-size:12px;">+ Výdaj</button>
+        </div>
       </div>
 
       <!-- Main: remaining -->
