@@ -830,10 +830,11 @@ let D = (() => {
   return JSON.parse(JSON.stringify(DEFAULTS));
 })();
 
+var _cloudLoadDone=false; // prevent overwriting cloud before first load
 function save() {
   localStorage.setItem('fa_v2', JSON.stringify(D));
-  // Auto cloud sync (debounced)
-  if(D.settings&&D.settings.cloudKey) _cloudSaveDebounce();
+  // Auto cloud sync (debounced) — only after first cloud load completed
+  if(_cloudLoadDone&&D.settings&&D.settings.cloudKey) _cloudSaveDebounce();
 }
 var _cloudTimer=null, _cloudSyncing=false;
 function _cloudSaveDebounce(){
@@ -15755,20 +15756,18 @@ function _unlockApp(){
     headers:{'X-Master-Key':_CLOUD_API_KEY}
   }).then(r=>r.json()).then(res=>{
     if(res.record&&res.record.settings){
-      // Compare total data size - use whichever has more
-      const localSize=JSON.stringify(D).length;
-      const cloudSize=JSON.stringify(res.record).length;
-      if(cloudSize>localSize||cloudSize>500){
-        D=res.record;
-        if(!D.settings) D.settings={};
-        D.settings.cloudKey=_CLOUD_API_KEY;
-        D.settings.cloudBinId=_CLOUD_BIN_ID;
-        localStorage.setItem('fa_v2',JSON.stringify(D));
-      }
+      // Always use cloud data — it's the source of truth
+      D=res.record;
+      if(!D.settings) D.settings={};
+      D.settings.cloudKey=_CLOUD_API_KEY;
+      D.settings.cloudBinId=_CLOUD_BIN_ID;
+      localStorage.setItem('fa_v2',JSON.stringify(D));
     }
+    _cloudLoadDone=true;
     _setSyncStatus('ok','Připojeno ☁️');
     init();
   }).catch(()=>{
+    _cloudLoadDone=true;
     _setSyncStatus('error','Offline');
     init();
   });
