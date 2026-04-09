@@ -13085,7 +13085,7 @@ function renderGoalDetail(g){
             <div style="font-size:13px;font-weight:600;">${m.title}</div>
             ${m.targetValue?`<div style="font-size:11px;color:var(--text3);">Cíl: ${m.targetValue} ${g.unit||''}</div>`:''}
           </div>
-          <button style="background:none;border:none;cursor:pointer;font-size:10px;opacity:.3;" onclick="event.stopPropagation();removeGoalItem('${g.id}','milestones',${i})">×</button>
+          <button style="background:none;border:none;cursor:pointer;font-size:16px;opacity:.5;color:var(--danger);padding:4px 8px;" onclick="event.stopPropagation();removeGoalItem('${g.id}','milestones',${i})" title="Smazat">🗑️</button>
         </div>`).join('')}
         ${milestones.length>0?`<div style="font-size:11px;color:var(--text3);margin-top:6px;">${milestones.filter(m=>m.done).length}/${milestones.length} splněno</div>`:''}
       </div>
