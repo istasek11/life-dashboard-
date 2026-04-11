@@ -874,7 +874,10 @@ function cloudSave(){
   _setSyncStatus('syncing','Ukládám…');
   // Strip base64 images before saving — they're in Supabase Storage
   const clone=JSON.parse(JSON.stringify(D));
-  (clone.lifeGoals||[]).forEach(g=>{if(g.image&&g.image.startsWith('data:'))delete g.image;});
+  (clone.lifeGoals||[]).forEach(g=>{
+    if(g.image&&g.image.startsWith('data:'))delete g.image;
+    if(g.images)g.images=g.images.filter(i=>!(i.url&&i.url.startsWith('data:')));
+  });
   return fetch(_SUPABASE_URL+'/rest/v1/app_data?id=eq.main',{
     method:'GET', headers:_sbHeaders()
   }).then(r=>r.json()).then(rows=>{
@@ -12787,7 +12790,7 @@ function lifegoals(){
         ${visionGoals.map(g=>{
           const pct=g.target>0?Math.min(100,Math.round((g.current||0)/g.target*100)):0;
           return`<div style="padding:20px;border-radius:16px;background:var(--surface1);border:2px solid ${g.color||'var(--border)'};cursor:pointer;transition:transform .15s;" onmouseenter="this.style.transform='scale(1.02)'" onmouseleave="this.style.transform=''" onclick="_goalDetail='${g.id}';renderMain();">
-            ${g.image?`<div style="aspect-ratio:16/10;border-radius:12px;overflow:hidden;margin:-8px -8px 10px;background:#000;"><img src="${g.image}" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;"></div>`:`<div style="font-size:36px;text-align:center;margin-bottom:8px;">${g.icon||'🌟'}</div>`}
+            ${goalImages(g).length>0?`<div style="margin:-8px -8px 10px;">${goalCarousel(g.id+'-vis',goalImages(g),'16/10')}</div>`:`<div style="font-size:36px;text-align:center;margin-bottom:8px;">${g.icon||'🌟'}</div>`}
             <div style="font-size:14px;font-weight:700;text-align:center;margin-bottom:4px;">${g.title}</div>
             <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:8px;">${GOAL_AREAS[g.area]||g.area||''}</div>
             ${g.target>0?`<div style="height:6px;background:var(--surface2);border-radius:100px;overflow:hidden;">
@@ -12874,8 +12877,8 @@ function lifegoals(){
       <div class="section-title mb-3">🌟 Vision Board</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
         ${gl.filter(g=>g.vision).slice(0,9).map(g=>`<div style="border-radius:12px;background:var(--surface2);text-align:center;cursor:pointer;overflow:hidden;" onclick="_goalDetail='${g.id}';renderMain();">
-          ${g.image?`<div style="aspect-ratio:16/10;overflow:hidden;"><img src="${g.image}" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;"></div>`:`<div style="font-size:24px;padding-top:12px;">${g.icon||'🌟'}</div>`}
-          <div style="font-size:10px;font-weight:600;padding:${g.image?'8px 8px':'4px 12px 12px'};">${g.title}</div>
+          ${goalImages(g).length>0?`<div style="aspect-ratio:16/10;overflow:hidden;"><img src="${goalImages(g)[0]}" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;"></div>`:`<div style="font-size:24px;padding-top:12px;">${g.icon||'🌟'}</div>`}
+          <div style="font-size:10px;font-weight:600;padding:${goalImages(g).length>0?'8px 8px':'4px 12px 12px'};">${g.title}</div>
         </div>`).join('')}
         ${gl.filter(g=>g.vision).length===0?'<p class="text-muted text-sm">Označ cíle jako Vizi.</p>':''}
       </div>
@@ -12900,7 +12903,7 @@ function renderGoalCard(g){
   return `<div style="padding:14px;border-radius:12px;background:var(--surface2);margin-bottom:10px;cursor:pointer;transition:transform .12s;" onmouseenter="this.style.transform='translateX(4px)'" onmouseleave="this.style.transform=''" onclick="_goalDetail='${g.id}';renderMain();">
     <div class="flex-b" style="margin-bottom:8px;">
       <div style="display:flex;align-items:center;gap:10px;">
-        ${g.image?`<img src="${g.image}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">`:`<span style="font-size:24px;">${g.icon||'🎯'}</span>`}
+        ${goalImages(g).length>0?`<img src="${goalImages(g)[0]}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">`:`<span style="font-size:24px;">${g.icon||'🎯'}</span>`}
         <div>
           <div style="font-size:14px;font-weight:700;${done?'text-decoration:line-through;opacity:.6;':''}">${g.title}</div>
           <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">
@@ -12956,7 +12959,7 @@ function renderGoalDetail(g){
       </div>
     </div>
 
-    ${g.image?`<div class="card mb-4" style="padding:0;overflow:hidden;"><img src="${g.image}" style="width:100%;aspect-ratio:21/9;object-fit:cover;object-position:center;display:block;"></div>`:''}
+    ${goalImages(g).length>0?`<div class="card mb-4" style="padding:0;overflow:hidden;">${goalCarousel(g.id,goalImages(g),'21/9')}</div>`:''}
 
     <div class="g4 mb-4">
       <div class="card dash-kpi"><div class="dash-kpi-label">Pokrok</div><div class="dash-kpi-val" style="color:${color};">${pct}%</div></div>
@@ -13172,26 +13175,81 @@ function saveSelfTalk(){
   save();closeModal();renderMain();
 }
 
+// Multi-image support
+var _lgImages=[]; // temp array for modal
+function goalImages(g){
+  const imgs=[];
+  if(g.images&&g.images.length) imgs.push(...g.images.map(i=>i.url||i));
+  else if(g.image) imgs.push(g.image);
+  return imgs;
+}
+function goalCarousel(goalId,imgs,aspect,maxH){
+  if(!imgs||imgs.length===0) return '';
+  const cid='gc-'+goalId.replace(/[^a-z0-9]/gi,'');
+  if(imgs.length===1) return `<div style="aspect-ratio:${aspect};overflow:hidden;border-radius:12px;background:#000;${maxH?'max-height:'+maxH+'px;':''}"><img src="${imgs[0]}" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;"></div>`;
+  return `<div id="${cid}" style="position:relative;aspect-ratio:${aspect};overflow:hidden;border-radius:12px;background:#000;${maxH?'max-height:'+maxH+'px;':''}" data-idx="0">
+    <img src="${imgs[0]}" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;" id="${cid}-img">
+    <button onclick="event.stopPropagation();gcNav('${cid}',${imgs.length},-1)" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">‹</button>
+    <button onclick="event.stopPropagation();gcNav('${cid}',${imgs.length},1)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">›</button>
+    <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;">
+      ${imgs.map((_,i)=>`<div id="${cid}-dot-${i}" style="width:8px;height:8px;border-radius:50%;background:${i===0?'#fff':'rgba(255,255,255,.4)'};"></div>`).join('')}
+    </div>
+  </div>`;
+}
+var _gcUrls={};
+function gcNav(cid,count,dir){
+  const el=document.getElementById(cid);if(!el)return;
+  let idx=parseInt(el.dataset.idx||0)+dir;
+  if(idx<0)idx=count-1; if(idx>=count)idx=0;
+  el.dataset.idx=idx;
+  const gid=cid.replace('gc-','');
+  const g=(D.lifeGoals||[]).find(x=>x.id.replace(/[^a-z0-9]/gi,'')===gid);
+  if(!g)return;
+  const imgs=goalImages(g);
+  const img=document.getElementById(cid+'-img');
+  if(img)img.src=imgs[idx];
+  for(let i=0;i<count;i++){const dot=document.getElementById(cid+'-dot-'+i);if(dot)dot.style.background=i===idx?'#fff':'rgba(255,255,255,.4)';}
+}
+
 function lgImgPick(e){
-  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const files=e.target.files; if(!files||!files.length) return;
   const preview=document.getElementById('lg-img-preview');
-  preview.innerHTML='<span style="font-size:13px;color:var(--text3);">Nahrávám obrázek…</span>';
-  sbUploadImage(f).then(({url,key})=>{
-    document.getElementById('lg-img').value=url;
-    document.getElementById('lg-img').dataset.imgKey=key;
-    preview.innerHTML=`<img src="${url}" style="max-width:100%;max-height:160px;border-radius:8px;display:block;"><button type="button" class="btn btn-ghost btn-sm mt-1" onclick="lgImgClear()">Odebrat obrázek</button>`;
-  }).catch(err=>{
-    preview.innerHTML='<span style="color:var(--danger);font-size:13px;">Chyba uploadu: '+err.message+'</span>';
+  const total=files.length;
+  let done=0;
+  preview.innerHTML=`<span style="font-size:13px;color:var(--text3);">Nahrávám ${total} obrázek(ů)…</span>`;
+  Array.from(files).forEach(f=>{
+    sbUploadImage(f).then(({url,key})=>{
+      _lgImages.push({url,key});
+      done++;
+      if(done===total) lgRenderPreview();
+    }).catch(err=>{
+      done++;
+      if(done===total) lgRenderPreview();
+    });
   });
 }
+function lgRenderPreview(){
+  const preview=document.getElementById('lg-img-preview');
+  if(!_lgImages.length){preview.innerHTML='';return;}
+  preview.innerHTML=_lgImages.map((img,i)=>`<div style="display:inline-block;position:relative;margin:4px;">
+    <img src="${img.url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;display:block;">
+    <button type="button" style="position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="_lgImages.splice(${i},1);lgRenderPreview();">×</button>
+  </div>`).join('')+`<div style="margin-top:6px;font-size:11px;color:var(--text3);">${_lgImages.length} obrázek(ů)</div>`;
+}
 function lgImgClear(){
-  document.getElementById('lg-img').value='';
+  _lgImages=[];
   document.getElementById('lg-img-preview').innerHTML='';
   const f=document.getElementById('lg-img-file'); if(f) f.value='';
 }
 
 function openLifeGoalModal(editId){
   const g=editId?(D.lifeGoals||[]).find(x=>x.id===editId):null;
+  // Init images array from existing goal
+  _lgImages=[];
+  if(g){
+    if(g.images&&g.images.length) _lgImages=g.images.map(i=>({url:i.url||i,key:i.key||null}));
+    else if(g.image) _lgImages=[{url:g.image,key:g._imgKey||null}];
+  }
   openModal(g?'✏️ Upravit cíl':'🎯 Nový životní cíl',`
     <input type="hidden" id="lg-edit" value="${g?g.id:''}">
     <div class="fr fr2">
@@ -13212,16 +13270,16 @@ function openLifeGoalModal(editId){
       <div class="form-group"><label class="form-label">Deadline</label><input type="date" class="form-input" id="lg-dead" value="${g?g.deadline||'':''}"></div>
       <div class="form-group"><label class="form-label">Barva (hex)</label><input type="color" class="form-input" id="lg-color" value="${g?g.color||'#6366f1':'#6366f1'}" style="height:38px;"></div>
     </div>
-    <div class="form-group"><label class="form-label">🖼️ Obrázek</label>
-      <input type="file" id="lg-img-file" accept="image/*" onchange="lgImgPick(event)">
-      <input type="hidden" id="lg-img" value="${g&&g.image?g.image:''}">
-      <div id="lg-img-preview" style="margin-top:8px;">${g&&g.image?`<img src="${g.image}" style="max-width:100%;max-height:160px;border-radius:8px;display:block;"><button type="button" class="btn btn-ghost btn-sm mt-1" onclick="lgImgClear()">Odebrat obrázek</button>`:''}</div>
+    <div class="form-group"><label class="form-label">🖼️ Obrázky (více najednou)</label>
+      <input type="file" id="lg-img-file" accept="image/*" multiple onchange="lgImgPick(event)">
+      <div id="lg-img-preview" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;"></div>
     </div>
     <div class="form-group"><label class="form-label">💡 Proč je to důležité?</label><textarea class="form-input" id="lg-why" rows="2" placeholder="Motivace — proč tento cíl?">${g?g.whyImportant||'':''}</textarea></div>
     <div class="form-group"><label class="form-label">📝 Poznámky</label><textarea class="form-input" id="lg-notes" rows="2">${g?g.notes||'':''}</textarea></div>
     <label class="check-row"><input type="checkbox" id="lg-vision" ${g&&g.vision?'checked':''}> 🌟 Zobrazit na Vision Board</label>`,
     `<button class="btn btn-primary" onclick="saveLifeGoal()">Uložit</button>
      <button class="btn btn-ghost" onclick="closeModal()">Zrušit</button>`);
+  setTimeout(()=>lgRenderPreview(),50);
 }
 
 function saveLifeGoal(){
@@ -13229,10 +13287,8 @@ function saveLifeGoal(){
   if(!title){alert('Zadej název');return;}
   const editId=document.getElementById('lg-edit').value;
   const existing=editId?D.lifeGoals.find(x=>x.id===editId):null;
-  const imgEl=document.getElementById('lg-img');
-  const imgUrl=imgEl.value||null;
-  const imgKey=imgEl.dataset&&imgEl.dataset.imgKey?imgEl.dataset.imgKey:(existing&&existing._imgKey?existing._imgKey:null);
-  const obj={id:editId||uid(),title,area:document.getElementById('lg-area').value,icon:document.getElementById('lg-icon').value.trim()||'🎯',priority:document.getElementById('lg-priority').value,status:document.getElementById('lg-status').value,target:parseFloat(document.getElementById('lg-target').value)||0,current:parseFloat(document.getElementById('lg-current').value)||0,unit:document.getElementById('lg-unit').value.trim(),deadline:document.getElementById('lg-dead').value||null,color:document.getElementById('lg-color').value,image:imgUrl,_imgKey:imgKey,whyImportant:document.getElementById('lg-why').value.trim(),notes:document.getElementById('lg-notes').value.trim(),vision:document.getElementById('lg-vision').checked,milestones:existing?existing.milestones||[]:[],updates:existing?existing.updates||[]:[],completedDate:existing?existing.completedDate:null};
+  const images=_lgImages.map(i=>({url:i.url,key:i.key}));
+  const obj={id:editId||uid(),title,area:document.getElementById('lg-area').value,icon:document.getElementById('lg-icon').value.trim()||'🎯',priority:document.getElementById('lg-priority').value,status:document.getElementById('lg-status').value,target:parseFloat(document.getElementById('lg-target').value)||0,current:parseFloat(document.getElementById('lg-current').value)||0,unit:document.getElementById('lg-unit').value.trim(),deadline:document.getElementById('lg-dead').value||null,color:document.getElementById('lg-color').value,images:images,image:images.length>0?images[0].url:null,_imgKey:images.length>0?images[0].key:null,whyImportant:document.getElementById('lg-why').value.trim(),notes:document.getElementById('lg-notes').value.trim(),vision:document.getElementById('lg-vision').checked,milestones:existing?existing.milestones||[]:[],updates:existing?existing.updates||[]:[],completedDate:existing?existing.completedDate:null};
   if(!D.lifeGoals) D.lifeGoals=[];
   if(editId){const i=D.lifeGoals.findIndex(x=>x.id===editId);if(i>=0)D.lifeGoals[i]=obj;}
   else D.lifeGoals.push(obj);
