@@ -683,8 +683,8 @@ select.form-input:focus, textarea.form-input:focus { border-color: var(--primary
 </div>
 <script>
 const _PIN_HASH='1107';
-const _CLOUD_API_KEY='$2a$10$kbkHgRHpySLaKecebnNskutNMBZYo0CQJCNf8l0yus8uGQ3viIxvO';
-const _CLOUD_BIN_ID='69c828616860e0745bfcd060';
+const _SUPABASE_URL='https://uwjuweavrgphptadpnwq.supabase.co';
+const _SUPABASE_KEY='sb_publishable_L91WEuYW5h-W0_SOqBfC7g_fOl1B9PD';
 function pinNext(el,n){
   if(el.value.length===1&&n<4)document.getElementById('pin-'+(n+1)).focus();
   if(n===4){
@@ -849,11 +849,10 @@ let D = (() => {
   return JSON.parse(JSON.stringify(DEFAULTS));
 })();
 
-var _cloudLoadDone=false; // prevent overwriting cloud before first load
+var _cloudLoadDone=false;
 function save() {
   localStorage.setItem('fa_v2', JSON.stringify(D));
-  // Auto cloud sync (debounced) — only after first cloud load completed
-  if(_cloudLoadDone&&D.settings&&D.settings.cloudKey) _cloudSaveDebounce();
+  if(_cloudLoadDone) _cloudSaveDebounce();
 }
 var _cloudTimer=null, _cloudSyncing=false;
 function _cloudSaveDebounce(){
@@ -867,23 +866,29 @@ function _setSyncStatus(status,msg){
   const colors={syncing:'var(--text3)',ok:'var(--success)',error:'var(--danger)',off:'var(--text3)'};
   el.innerHTML=`<span style="font-size:12px;">${icons[status]||'○'}</span><span class="sidebar-logo-text" style="font-size:11px;color:${colors[status]||'var(--text3)'};">${msg}</span>`;
 }
+function _sbHeaders(extra){
+  return Object.assign({'apikey':_SUPABASE_KEY,'Authorization':'Bearer '+_SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},extra||{});
+}
 function cloudSave(){
-  const apiKey=D.settings&&D.settings.cloudKey;
-  if(!apiKey){_setSyncStatus('off','Offline');return Promise.resolve();}
-  const binId=D.settings.cloudBinId;
-  if(!binId){_setSyncStatus('error','Chybí Bin ID');return Promise.resolve();}
   _cloudSyncing=true;
   _setSyncStatus('syncing','Ukládám…');
-  return fetch('https://api.jsonbin.io/v3/b/'+binId,{
-    method:'PUT', body:JSON.stringify(D),
-    headers:{'Content-Type':'application/json','X-Master-Key':apiKey}
-  }).then(r=>r.json()).then(res=>{
-    if(res.metadata){
+  // Strip base64 images before saving — they're in Supabase Storage
+  const clone=JSON.parse(JSON.stringify(D));
+  (clone.lifeGoals||[]).forEach(g=>{if(g.image&&g.image.startsWith('data:'))delete g.image;});
+  return fetch(_SUPABASE_URL+'/rest/v1/app_data?id=eq.main',{
+    method:'GET', headers:_sbHeaders()
+  }).then(r=>r.json()).then(rows=>{
+    const method=rows.length>0?'PATCH':'POST';
+    const url=_SUPABASE_URL+'/rest/v1/app_data'+(rows.length>0?'?id=eq.main':'');
+    const body=rows.length>0?{data:clone,updated_at:new Date().toISOString()}:{id:'main',data:clone,updated_at:new Date().toISOString()};
+    return fetch(url,{method,body:JSON.stringify(body),headers:_sbHeaders()});
+  }).then(r=>{
+    if(r.ok){
       D.settings.lastCloudSync=new Date().toISOString();
       localStorage.setItem('fa_v2',JSON.stringify(D));
       _setSyncStatus('ok','Uloženo ☁️');
     } else {
-      _setSyncStatus('error',res.message||'Chyba');
+      r.text().then(t=>_setSyncStatus('error','Chyba: '+t.slice(0,60)));
     }
     _cloudSyncing=false;
   }).catch(e=>{
@@ -892,48 +897,54 @@ function cloudSave(){
   });
 }
 function cloudLoad(){
-  const apiKey=D.settings&&D.settings.cloudKey;
-  if(!apiKey){alert('Nastav API klíč v Nastavení → Cloud sync.');return;}
-  const binId=D.settings.cloudBinId;
-  if(!binId){alert('Nastav Bin ID v Nastavení → Cloud sync.');return;}
   _setSyncStatus('syncing','Načítám…');
-  fetch('https://api.jsonbin.io/v3/b/'+binId+'/latest',{
-    headers:{'X-Master-Key':apiKey}
-  }).then(r=>r.json()).then(res=>{
-    if(res.message){_setSyncStatus('error',res.message);return;}
-    const data=res.record;
-    if(!data||!data.transactions){_setSyncStatus('error','Prázdná data');return;}
-    const cloudKey=D.settings.cloudKey, cloudBinId=D.settings.cloudBinId;
+  fetch(_SUPABASE_URL+'/rest/v1/app_data?id=eq.main&select=data',{
+    headers:_sbHeaders()
+  }).then(r=>r.json()).then(rows=>{
+    if(!rows||!rows.length||!rows[0].data){_setSyncStatus('error','Prázdná data');return;}
+    const data=rows[0].data;
+    if(!data.settings){_setSyncStatus('error','Neplatná data');return;}
     D=data;
     if(!D.settings) D.settings={};
-    D.settings.cloudKey=cloudKey;
-    D.settings.cloudBinId=cloudBinId;
+    // Restore image URLs from Supabase Storage
+    (D.lifeGoals||[]).forEach(g=>{
+      if(g._imgKey&&!g.image) g.image=_SUPABASE_URL+'/storage/v1/object/public/images/'+g._imgKey;
+    });
     localStorage.setItem('fa_v2',JSON.stringify(D));
     _setSyncStatus('ok','Načteno ☁️');
     renderNav(); renderMain();
   }).catch(e=>{_setSyncStatus('error','Offline');});
 }
-function cloudCreateBin(){
-  const apiKey=(document.getElementById('cloud-key').value||'').trim();
-  if(!apiKey){alert('Nejdřív zadej API klíč.');return;}
-  _setSyncStatus('syncing','Vytvářím…');
-  fetch('https://api.jsonbin.io/v3/b',{
-    method:'POST', body:JSON.stringify(D),
-    headers:{'Content-Type':'application/json','X-Master-Key':apiKey,'X-Bin-Name':'life-app-data','X-Bin-Private':'true'}
-  }).then(r=>r.json()).then(res=>{
-    if(res.metadata&&res.metadata.id){
-      D.settings.cloudKey=apiKey;
-      D.settings.cloudBinId=res.metadata.id;
-      D.settings.lastCloudSync=new Date().toISOString();
-      save();
-      _setSyncStatus('ok','Vytvořeno ☁️');
-      renderMain();
-      alert('Bin vytvořen! ID: '+res.metadata.id+'\n\nData byla nahrána do cloudu. ✓');
-    } else {
-      _setSyncStatus('error',res.message||'Chyba');
-      alert('Chyba: '+(res.message||'Neznámá chyba'));
-    }
-  }).catch(e=>{_setSyncStatus('error','Chyba');alert('Chyba: '+e.message);});
+// Upload image to Supabase Storage, returns public URL
+function sbUploadImage(file){
+  return new Promise((resolve,reject)=>{
+    const key='goals/'+Date.now()+'_'+Math.random().toString(36).slice(2,6)+'.jpg';
+    // Resize image first
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{
+        const max=900; let w=img.width,h=img.height;
+        if(w>max||h>max){const s=Math.min(max/w,max/h); w=Math.round(w*s); h=Math.round(h*s);}
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        c.toBlob(blob=>{
+          fetch(_SUPABASE_URL+'/storage/v1/object/images/'+key,{
+            method:'POST',
+            headers:{'apikey':_SUPABASE_KEY,'Authorization':'Bearer '+_SUPABASE_KEY,'Content-Type':'image/jpeg'},
+            body:blob
+          }).then(r=>{
+            if(r.ok){
+              const url=_SUPABASE_URL+'/storage/v1/object/public/images/'+key;
+              resolve({url,key});
+            } else r.text().then(t=>reject(new Error(t)));
+          }).catch(reject);
+        },'image/jpeg',0.85);
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -13205,21 +13216,15 @@ function removeGoalItem(goalId,arr,idx){
 
 function lgImgPick(e){
   const f=e.target.files&&e.target.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=ev=>{
-    const img=new Image();
-    img.onload=()=>{
-      const max=900; let w=img.width,h=img.height;
-      if(w>max||h>max){const s=Math.min(max/w,max/h); w=Math.round(w*s); h=Math.round(h*s);}
-      const c=document.createElement('canvas'); c.width=w; c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
-      const data=c.toDataURL('image/jpeg',0.85);
-      document.getElementById('lg-img').value=data;
-      document.getElementById('lg-img-preview').innerHTML=`<img src="${data}" style="max-width:100%;max-height:160px;border-radius:8px;display:block;"><button type="button" class="btn btn-ghost btn-sm mt-1" onclick="lgImgClear()">Odebrat obrázek</button>`;
-    };
-    img.src=ev.target.result;
-  };
-  r.readAsDataURL(f);
+  const preview=document.getElementById('lg-img-preview');
+  preview.innerHTML='<span style="font-size:13px;color:var(--text3);">Nahrávám obrázek…</span>';
+  sbUploadImage(f).then(({url,key})=>{
+    document.getElementById('lg-img').value=url;
+    document.getElementById('lg-img').dataset.imgKey=key;
+    preview.innerHTML=`<img src="${url}" style="max-width:100%;max-height:160px;border-radius:8px;display:block;"><button type="button" class="btn btn-ghost btn-sm mt-1" onclick="lgImgClear()">Odebrat obrázek</button>`;
+  }).catch(err=>{
+    preview.innerHTML='<span style="color:var(--danger);font-size:13px;">Chyba uploadu: '+err.message+'</span>';
+  });
 }
 function lgImgClear(){
   document.getElementById('lg-img').value='';
@@ -13266,7 +13271,10 @@ function saveLifeGoal(){
   if(!title){alert('Zadej název');return;}
   const editId=document.getElementById('lg-edit').value;
   const existing=editId?D.lifeGoals.find(x=>x.id===editId):null;
-  const obj={id:editId||uid(),title,area:document.getElementById('lg-area').value,icon:document.getElementById('lg-icon').value.trim()||'🎯',priority:document.getElementById('lg-priority').value,status:document.getElementById('lg-status').value,target:parseFloat(document.getElementById('lg-target').value)||0,current:parseFloat(document.getElementById('lg-current').value)||0,unit:document.getElementById('lg-unit').value.trim(),deadline:document.getElementById('lg-dead').value||null,color:document.getElementById('lg-color').value,image:document.getElementById('lg-img').value||null,whyImportant:document.getElementById('lg-why').value.trim(),notes:document.getElementById('lg-notes').value.trim(),vision:document.getElementById('lg-vision').checked,milestones:existing?existing.milestones||[]:[],updates:existing?existing.updates||[]:[],completedDate:existing?existing.completedDate:null};
+  const imgEl=document.getElementById('lg-img');
+  const imgUrl=imgEl.value||null;
+  const imgKey=imgEl.dataset&&imgEl.dataset.imgKey?imgEl.dataset.imgKey:(existing&&existing._imgKey?existing._imgKey:null);
+  const obj={id:editId||uid(),title,area:document.getElementById('lg-area').value,icon:document.getElementById('lg-icon').value.trim()||'🎯',priority:document.getElementById('lg-priority').value,status:document.getElementById('lg-status').value,target:parseFloat(document.getElementById('lg-target').value)||0,current:parseFloat(document.getElementById('lg-current').value)||0,unit:document.getElementById('lg-unit').value.trim(),deadline:document.getElementById('lg-dead').value||null,color:document.getElementById('lg-color').value,image:imgUrl,_imgKey:imgKey,whyImportant:document.getElementById('lg-why').value.trim(),notes:document.getElementById('lg-notes').value.trim(),vision:document.getElementById('lg-vision').checked,milestones:existing?existing.milestones||[]:[],updates:existing?existing.updates||[]:[],completedDate:existing?existing.completedDate:null};
   if(!D.lifeGoals) D.lifeGoals=[];
   if(editId){const i=D.lifeGoals.findIndex(x=>x.id===editId);if(i>=0)D.lifeGoals[i]=obj;}
   else D.lifeGoals.push(obj);
@@ -15870,40 +15878,15 @@ function settings(){
       })()}
     </div>
     <div class="card mb-3">
-      <div class="section-title mb-3">☁️ Cloud Sync — JSONBin.io</div>
-      <p class="text-sm text-muted mb-3">Automaticky ukládá data do cloudu. Po každé změně se data synchronizují (5s debounce).</p>
+      <div class="section-title mb-3">☁️ Cloud Sync — Supabase</div>
+      <p class="text-sm text-muted mb-3">Data se automaticky synchronizují do Supabase (500 MB databáze + 1 GB obrázky zdarma).</p>
       ${D.settings.lastCloudSync?`<p class="text-sm mb-3" style="color:var(--success);">✓ Poslední sync: ${new Date(D.settings.lastCloudSync).toLocaleString('cs-CZ')}</p>`
-        :D.settings.cloudKey?'<div class="dash-alert warn mb-3">Cloud nastaven, ale ještě nebyl proveden sync.</div>'
-        :'<div class="dash-alert warn mb-3">Cloud sync není nastaven. Postupuj podle návodu níže.</div>'}
-      <div class="form-group">
-        <label class="form-label">API klíč (X-Master-Key)</label>
-        <input type="password" class="form-input" id="cloud-key" value="${D.settings.cloudKey||''}" placeholder="$2a$10$..." style="font-family:monospace;font-size:12px;">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Bin ID ${D.settings.cloudBinId?'<span style="color:var(--success);">✓ '+D.settings.cloudBinId+'</span>':''}</label>
-        <input type="text" class="form-input" id="cloud-bin" value="${D.settings.cloudBinId||''}" placeholder="Automaticky se vytvoří, nebo vlož existující…" style="font-family:monospace;font-size:12px;">
-      </div>
+        :'<div class="dash-alert warn mb-3">Ještě nebyl proveden sync.</div>'}
       <div class="flex-c gap-2 mb-3" style="flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="saveCloudSettings()">💾 Uložit nastavení</button>
-        ${D.settings.cloudBinId?`
-          <button class="btn btn-ghost" onclick="cloudSave().then(()=>renderMain())">☁️ Nahrát do cloudu</button>
-          <button class="btn btn-ghost" onclick="if(confirm('Načíst data z cloudu? Přepíše lokální data.'))cloudLoad()">📥 Stáhnout z cloudu</button>
-        `:`
-          <button class="btn btn-primary" style="background:var(--success);" onclick="cloudCreateBin()">🚀 Vytvořit & nahrát</button>
-        `}
+        <button class="btn btn-primary" onclick="cloudSave().then(()=>renderMain())">☁️ Nahrát do cloudu</button>
+        <button class="btn btn-ghost" onclick="if(confirm('Načíst data z cloudu? Přepíše lokální data.'))cloudLoad()">📥 Stáhnout z cloudu</button>
       </div>
-      <details style="margin-top:8px;">
-        <summary style="cursor:pointer;font-size:12px;color:var(--primary);font-weight:600;">📖 Návod na nastavení (1 minuta)</summary>
-        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-top:10px;padding:12px;background:var(--surface2);border-radius:8px;">
-          <strong>1.</strong> Otevři <a href="https://jsonbin.io" target="_blank" style="color:var(--primary);">jsonbin.io</a> a vytvoř si účet zdarma<br>
-          <strong>2.</strong> Po přihlášení jdi na <strong>API Keys</strong> (ikona klíče nahoře)<br>
-          <strong>3.</strong> Zkopíruj svůj <strong>X-Master-Key</strong> (začíná na <code>$2a$10$...</code>)<br>
-          <strong>4.</strong> Vlož ho sem do pole <strong>API klíč</strong><br>
-          <strong>5.</strong> Klikni <strong>Vytvořit & nahrát</strong> — automaticky se vytvoří bin s tvými daty<br>
-          <strong>6.</strong> Hotovo! Data se automaticky synchronizují po každé změně. 🎉<br><br>
-          <em>Na jiném zařízení:</em> Vlož stejný API klíč + Bin ID a klikni <strong>Stáhnout z cloudu</strong>.
-        </div>
-      </details>
+      <p class="text-sm text-muted">Připojeno k: <code style="font-size:11px;">${_SUPABASE_URL.replace('https://','').replace('.supabase.co','')}</code></p>
     </div>
     <div class="card mb-3">
       <div class="section-title mb-3">💾 Záloha dat</div>
@@ -16134,11 +16117,7 @@ function togglePageVisibility(pid){
   save(); renderNav(); renderMain();
 }
 function saveCloudSettings(){
-  D.settings.cloudKey=(document.getElementById('cloud-key').value||'').trim();
-  D.settings.cloudBinId=(document.getElementById('cloud-bin').value||'').trim();
   save();
-  if(D.settings.cloudKey&&D.settings.cloudBinId) _setSyncStatus('ok','Připojeno');
-  else _setSyncStatus('off','Offline');
   renderMain();
 }
 
@@ -16540,22 +16519,20 @@ function importGiuliettaHistory(){
 }
 
 function _unlockApp(){
-  // Auto-set cloud credentials
   if(!D.settings) D.settings={};
-  D.settings.cloudKey=_CLOUD_API_KEY;
-  D.settings.cloudBinId=_CLOUD_BIN_ID;
   localStorage.setItem('fa_v2',JSON.stringify(D));
-  // Try loading from cloud first
+  // Try loading from Supabase first
   _setSyncStatus('syncing','Načítám z cloudu…');
-  fetch('https://api.jsonbin.io/v3/b/'+_CLOUD_BIN_ID+'/latest',{
-    headers:{'X-Master-Key':_CLOUD_API_KEY}
-  }).then(r=>r.json()).then(res=>{
-    if(res.record&&res.record.settings){
-      // Always use cloud data — it's the source of truth
-      D=res.record;
+  fetch(_SUPABASE_URL+'/rest/v1/app_data?id=eq.main&select=data',{
+    headers:_sbHeaders()
+  }).then(r=>r.json()).then(rows=>{
+    if(rows&&rows.length&&rows[0].data&&rows[0].data.settings){
+      D=rows[0].data;
       if(!D.settings) D.settings={};
-      D.settings.cloudKey=_CLOUD_API_KEY;
-      D.settings.cloudBinId=_CLOUD_BIN_ID;
+      // Restore image URLs from Supabase Storage
+      (D.lifeGoals||[]).forEach(g=>{
+        if(g._imgKey&&!g.image) g.image=_SUPABASE_URL+'/storage/v1/object/public/images/'+g._imgKey;
+      });
       localStorage.setItem('fa_v2',JSON.stringify(D));
     }
     _cloudLoadDone=true;
