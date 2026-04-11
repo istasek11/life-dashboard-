@@ -1206,19 +1206,6 @@ const PAGES = [
   {id:'rule503020', icon:'📐',label:'50/30/20',         group:'finance'},
   {id:'splits',     icon:'🤝',label:'Sdílené výdaje',   group:'finance'},
   {id:'kanban',     icon:'📌',label:'Kanban',            group:'finance'},
-  // Podnikání
-  {id:'business',   icon:'🏪',label:'Přehled',          group:'podnikání'},
-  {id:'bizprojects',icon:'📁',label:'Projekty',          group:'podnikání'},
-  {id:'bizclients', icon:'👥',label:'Klienti',           group:'podnikání'},
-  {id:'products',   icon:'📦',label:'Produkty & Marže',  group:'podnikání'},
-  {id:'bizpricing', icon:'🏷️',label:'Cenotvorba',       group:'podnikání'},
-  {id:'orders',     icon:'🛒',label:'Objednávky',        group:'podnikání'},
-  {id:'bizcosts',   icon:'💸',label:'Náklady',           group:'podnikání'},
-  {id:'biztimetrack',icon:'⏱️',label:'Čas & Práce',     group:'podnikání'},
-  {id:'bizinvoices',icon:'🧾',label:'Fakturace',         group:'podnikání'},
-  {id:'pnl',        icon:'📊',label:'P&L Report',        group:'podnikání'},
-  {id:'bizecommerce',icon:'🛍️',label:'E-commerce',       group:'podnikání'},
-  {id:'bizcashflow',icon:'💹',label:'Cash Flow',          group:'podnikání'},
   // Osobní
   {id:'habits',     icon:'✅',label:'Návyky',             group:'osobní'},
   {id:'journal',    icon:'📝',label:'Deník',              group:'osobní'},
@@ -6994,75 +6981,44 @@ function compare() {
 // STRATEGY
 // ═══════════════════════════════════════════════════
 
-function _strategyData(){
-  // Strategy config — hardcoded financial plan
-  const STRAT_DEBTS = [
-    {key:'moneta1', name:'Moneta 1', origBal:35589, rate:0, minPay:4093, endLabel:'Prosinec 2026'},
-    {key:'moneta2', name:'Moneta 2', origBal:138088, rate:8.9, minPay:2910, endLabel:'2027–2028'},
-    {key:'auto', name:'Auto', origBal:203192, rate:8.1, minPay:3596, endLabel:'02/2032'},
-  ];
-  // Try to get live balances from D.debts
-  STRAT_DEBTS.forEach(sd=>{
-    const live=D.debts.find(d=>d.name.toLowerCase().includes(sd.key.replace(/\d/g,''))&&Math.abs(d.originalBalance-sd.origBal)<5000);
-    if(live){sd.bal=live.balance;sd.rate=live.rate||sd.rate;sd.liveId=live.id;}
-    else sd.bal=sd.origBal;
-  });
-  // Detect current phase
-  const m1=STRAT_DEBTS.find(d=>d.key==='moneta1');
-  const m2=STRAT_DEBTS.find(d=>d.key==='moneta2');
-  let phase=1;
-  if(m1.bal<=0) phase=2;
-  if(m1.bal<=0&&m2.bal<=0) phase=3;
-
-  // Allocation rules per phase
-  const ALLOC = {
-    1:[
-      {name:'Investice S&P 500',amount:10000,icon:'📈',color:'#10b981',rule:'DCA – pravidelný nákup, NETKNUTELNÉ'},
-      {name:'Rezerva',amount:10000,icon:'🛟',color:'#3b82f6',rule:'Automatický trvalý příkaz, NETKNUTELNÉ'},
-      {name:'Fond na byt',amount:6000,icon:'🏠',color:'#8b5cf6',rule:'Separátní účet, automatický převod'},
-      {name:'Buffer / přebytek',amount:3000,icon:'💰',color:'#64748b',rule:'Nepředvídané nebo mimořádné splátky'},
+function _initStrategy(){
+  if(!D.strategyConfig) D.strategyConfig={
+    phases:[
+      {n:1,label:'Stabilizace',period:'Dub–Pro 2026',desc:'Splácet M1, nastavit automatické převody, refinancovat'},
+      {n:2,label:'Akcelerace',period:'Led–Pro 2027',desc:'M1 splacena, avalanche na M2, fond na byt roste'},
+      {n:3,label:'Zrychlení',period:'Led 2028+',desc:'M2 splacena, maximální úspory, fond na byt a investice'},
     ],
-    2:[
-      {name:'Investice S&P 500',amount:10000,icon:'📈',color:'#10b981',rule:'Beze změny'},
-      {name:'Rezerva',amount:10000,icon:'🛟',color:'#3b82f6',rule:'Beze změny'},
-      {name:'Fond na byt',amount:9500,icon:'🏠',color:'#8b5cf6',rule:'+3 500 Kč z uvolněné splátky M1'},
-      {name:'Extra splátka M2',amount:3500,icon:'⚡',color:'#ef4444',rule:'Avalanche efekt na M2'},
+    currentPhase:1,
+    alloc:[
+      {id:uid(),name:'Investice S&P 500',amount:10000,icon:'📈',color:'#10b981',rule:'DCA – pravidelný nákup, NETKNUTELNÉ'},
+      {id:uid(),name:'Rezerva',amount:10000,icon:'🛟',color:'#3b82f6',rule:'Automatický trvalý příkaz, NETKNUTELNÉ'},
+      {id:uid(),name:'Fond na byt',amount:6000,icon:'🏠',color:'#8b5cf6',rule:'Separátní účet, automatický převod'},
+      {id:uid(),name:'Buffer / přebytek',amount:3000,icon:'💰',color:'#64748b',rule:'Nepředvídané nebo mimořádné splátky'},
     ],
-    3:[
-      {name:'Investice S&P 500',amount:10000,icon:'📈',color:'#10b981',rule:'Trvalý DCA'},
-      {name:'Fond na byt',amount:15000,icon:'🏠',color:'#8b5cf6',rule:'Hlavní priorita'},
-      {name:'Rezerva',amount:13000,icon:'🛟',color:'#3b82f6',rule:'Doplnit na 500k'},
-      {name:'Buffer',amount:2000,icon:'💰',color:'#64748b',rule:'Minimum na nepředvídané'},
+    incomeRules:[
+      {id:uid(),title:'Příjem pod 75k',icon:'📉',color:'var(--warning)',text:'Škrtat odspodu: nejdřív Buffer → pak Fond na byt. Investice a Rezerva se NEŠKRTAJÍ.'},
+      {id:uid(),title:'Příjem nad 75k',icon:'📈',color:'var(--success)',text:'Přebytek v pořadí: Fond na byt → Extra splátka M2 → Rezerva'},
+      {id:uid(),title:'Mimořádný příjem',icon:'🎁',color:'#8b5cf6',text:'Celý přebytek → Fond na byt nebo mimořádná splátka M2 (podle fáze)'},
+    ],
+    rules:[
+      {id:uid(),icon:'🔒',text:'Investice 10k a Rezerva 10k se NEŠKRTAJÍ — ani v těžkém měsíci'},
+      {id:uid(),icon:'📋',text:'Každý přebytek má pravidlo — nic nezůstává volně na běžném účtu'},
+      {id:uid(),icon:'🔄',text:'Po splacení dluhu se splátka NEPROMĚNÍ v spotřebu — okamžitě přesměrovat'},
+      {id:uid(),icon:'⚡',text:'Fáze se mění automaticky po splacení M1/M2'},
+      {id:uid(),icon:'📅',text:'Měsíční review je povinný — 1. v měsíci, 15 minut'},
+      {id:uid(),icon:'📊',text:'Kvartální bilance — každé 3 měsíce porovnat predikci vs. realitu'},
+    ],
+    reviewItems:[
+      {key:'income',label:'Kolik přišlo tento měsíc? (celkový příjem)'},
+      {key:'transfers',label:'Proběhly automatické převody? (investice, rezerva, byt)'},
+      {key:'buffer',label:'Kolik zůstalo na Moneta? (buffer check — cíl ~70k)'},
+      {key:'extra',label:'Byl mimořádný příjem? → Alokovat podle pravidel'},
+      {key:'goals',label:'Aktuální stav cílů — zkontrolovat % splnění'},
+      {key:'phase',label:'Jsem ve správné fázi? → Kontrola alokace'},
     ],
   };
-  const alloc=ALLOC[phase]||ALLOC[1];
-  const totalAlloc=alloc.reduce((s,a)=>s+a.amount,0);
-
-  // Goals with live data
-  const findAcc=(names)=>{
-    for(const n of names){const a=D.accounts.find(x=>x.name.toLowerCase().includes(n.toLowerCase()));if(a)return a;}
-    return null;
-  };
-  const reserveAcc=findAcc(['Trinity','Spořicí','Rezerva','spořicí']);
-  const investAcc=findAcc(['S&P','ETF','Investice','invest']);
-  const bytAcc=findAcc(['Byt','byt','fond']);
-
-  const GOALS=[
-    {name:'Splatit Moneta 1',target:0,current:Math.max(0,m1.origBal-m1.bal),total:m1.origBal,icon:'💳',color:'#ef4444',pred75:'Prosinec 2026',pred90:'Prosinec 2026',done:m1.bal<=0},
-    {name:'Splatit Moneta 2',target:0,current:Math.max(0,m2.origBal-m2.bal),total:m2.origBal,icon:'💳',color:'#f59e0b',pred75:'Červenec 2028',pred90:'Prosinec 2027',done:m2.bal<=0},
-    {name:'Rezerva 500k',target:500000,current:reserveAcc?reserveAcc.balance:236578,total:500000,icon:'🛟',color:'#3b82f6',pred75:'Květen 2028',pred90:'Únor 2028',done:false},
-    {name:'Investice S&P 150k+',target:150000,current:investAcc?investAcc.balance:62500,total:150000,icon:'📈',color:'#10b981',pred75:'Prosinec 2026',pred90:'Prosinec 2026',done:false},
-    {name:'Fond na byt 300k',target:300000,current:bytAcc?bytAcc.balance:0,total:300000,icon:'🏠',color:'#8b5cf6',pred75:'Říjen 2028',pred90:'Květen 2028',done:false},
-  ];
-  GOALS.forEach(g=>{if(g.target>0)g.done=g.current>=g.target;});
-
-  // Monthly review checklist — stored in D.strategyReview
   if(!D.strategyReview) D.strategyReview={};
-  const cm=curMonth();
-  if(!D.strategyReview[cm]) D.strategyReview[cm]={};
-  const review=D.strategyReview[cm];
-
-  return {phase,alloc,totalAlloc,STRAT_DEBTS,GOALS,review,cm};
+  if(!D.strategyActions) D.strategyActions={};
 }
 
 function strategyToggleReview(key){
@@ -7073,21 +7029,25 @@ function strategyToggleReview(key){
   save();renderMain();
 }
 
+let _stratEdit=false;
+
 function strategy(){
-  const {phase,alloc,totalAlloc,STRAT_DEBTS,GOALS,review,cm}=_strategyData();
+  _initStrategy();
+  const cfg=D.strategyConfig;
+  const phase=cfg.currentPhase||1;
+  const alloc=cfg.alloc||[];
+  const totalAlloc=alloc.reduce((s,a)=>s+a.amount,0);
+  const cm=curMonth();
+  if(!D.strategyReview[cm]) D.strategyReview[cm]={};
+  const review=D.strategyReview[cm];
 
   // Phase indicator
-  const phases=[
-    {n:1,label:'Stabilizace',period:'Dub–Pro 2026',desc:'Splácet M1, nastavit automatické převody, refinancovat'},
-    {n:2,label:'Akcelerace',period:'Led–Pro 2027',desc:'M1 splacena, avalanche na M2, fond na byt roste'},
-    {n:3,label:'Zrychlení',period:'Led 2028+',desc:'M2 splacena, maximální úspory, fond na byt a investice'},
-  ];
-  const phaseHTML=phases.map(p=>{
+  const phaseHTML=(cfg.phases||[]).map(p=>{
     const active=p.n===phase;
     const done=p.n<phase;
     const col=done?'var(--success)':active?'var(--primary)':'var(--surface2)';
     const textCol=done||active?'#fff':'var(--text3)';
-    return `<div style="flex:1;padding:14px;border-radius:12px;background:${col};color:${textCol};text-align:center;position:relative;${active?'box-shadow:0 0 20px '+col+'60;':''}">
+    return `<div style="flex:1;padding:14px;border-radius:12px;background:${col};color:${textCol};text-align:center;cursor:pointer;${active?'box-shadow:0 0 20px '+col+'60;':''}" onclick="D.strategyConfig.currentPhase=${p.n};save();renderMain();">
       <div style="font-size:11px;font-weight:700;letter-spacing:.06em;margin-bottom:4px;">${done?'✓ ':active?'► ':''}FÁZE ${p.n}</div>
       <div style="font-size:15px;font-weight:800;">${p.label}</div>
       <div style="font-size:11px;opacity:.8;margin-top:2px;">${p.period}</div>
@@ -7110,75 +7070,29 @@ function strategy(){
     </div>`;
   }).join('');
 
-  // Donut allocation chart (SVG)
+  // Donut
   const donutR=50,donutC=2*Math.PI*donutR;
   let donutOffset=0;
   const donutArcs=alloc.map(a=>{
     const pct=a.amount/totalAlloc;
     const dash=donutC*pct;
-    const arc=`<circle cx="60" cy="60" r="${donutR}" fill="none" stroke="${a.color}" stroke-width="18" stroke-dasharray="${dash.toFixed(1)} ${(donutC-dash).toFixed(1)}" stroke-dashoffset="${(-donutOffset).toFixed(1)}" style="transition:all .5s;"/>`;
+    const arc=`<circle cx="70" cy="70" r="${donutR}" fill="none" stroke="${a.color}" stroke-width="18" stroke-dasharray="${dash.toFixed(1)} ${(donutC-dash).toFixed(1)}" stroke-dashoffset="${(-donutOffset).toFixed(1)}"/>`;
     donutOffset+=dash;
     return arc;
   }).join('');
 
-  // Goals progress
-  const goalsHTML=GOALS.map(g=>{
-    const pct=g.total>0?Math.min(100,Math.round(g.current/g.total*100)):0;
-    const statusCol=g.done?'var(--success)':pct>=60?'var(--primary)':pct>=30?'var(--warning)':'var(--danger)';
-    return `<div class="card" style="padding:14px 18px;margin-bottom:8px;border-left:4px solid ${g.color};">
-      <div class="flex-b" style="margin-bottom:8px;">
-        <div class="flex-c gap-2">
-          <span style="font-size:18px;">${g.icon}</span>
-          <div>
-            <div style="font-weight:700;font-size:14px;">${g.name} ${g.done?'<span style="color:var(--success);font-weight:800;">✓ SPLNĚNO</span>':''}</div>
-            <div style="font-size:11px;color:var(--text3);">75k: ${g.pred75} · 90k: ${g.pred90}</div>
-          </div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:18px;font-weight:800;color:${statusCol};">${pct}%</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="flex:1;height:10px;background:var(--surface2);border-radius:100px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${g.color};border-radius:100px;transition:width .6s;"></div>
-        </div>
-        <span style="font-size:12px;color:var(--text3);white-space:nowrap;">${fmtAmt(Math.round(g.current))} / ${fmtAmt(g.total)}</span>
-      </div>
-    </div>`;
-  }).join('');
+  // Income rules
+  const incomeRulesHTML=(cfg.incomeRules||[]).map(r=>`
+    <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;margin-bottom:8px;border-left:4px solid ${r.color};">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">${r.icon} ${r.title}</div>
+      <div style="font-size:12px;color:var(--text3);">${r.text}</div>
+    </div>`).join('');
 
-  // Debts overview with countdown
-  const debtsHTML=STRAT_DEBTS.filter(d=>d.bal>0).map(d=>{
-    const paidPct=d.origBal>0?Math.min(100,Math.round((d.origBal-d.bal)/d.origBal*100)):0;
-    const monthsLeft=d.minPay>0?Math.ceil(d.bal/d.minPay):999;
-    return `<div style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:4px solid var(--danger);margin-bottom:8px;">
-      <div>
-        <div style="font-weight:700;font-size:14px;">${d.name}</div>
-        <div style="font-size:12px;color:var(--text3);">Splátka ${fmtAmt(d.minPay)}/měs · úrok ${d.rate}% · splatnost ${d.endLabel}</div>
-        <div style="height:6px;background:var(--surface);border-radius:100px;overflow:hidden;margin-top:8px;">
-          <div style="height:100%;width:${paidPct}%;background:var(--success);border-radius:100px;"></div>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Splaceno ${paidPct}% · zbývá ~${monthsLeft} měsíců</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:20px;font-weight:800;color:var(--danger);">${fmtAmt(Math.round(d.bal))}</div>
-        <div style="font-size:11px;color:var(--text3);">z ${fmtAmt(d.origBal)}</div>
-      </div>
-    </div>`;
-  }).join('')||`<div style="padding:20px;text-align:center;color:var(--success);font-weight:700;font-size:16px;">🎉 Všechny dluhy splaceny!</div>`;
-
-  // Monthly review checklist
-  const REVIEW_ITEMS=[
-    {key:'income',label:'Kolik přišlo tento měsíc? (celkový příjem)'},
-    {key:'transfers',label:'Proběhly automatické převody? (investice, rezerva, byt)'},
-    {key:'buffer',label:'Kolik zůstalo na Moneta? (buffer check — cíl ~70k)'},
-    {key:'extra',label:'Byl mimořádný příjem? → Alokovat podle pravidel'},
-    {key:'goals',label:'Aktuální stav cílů — zkontrolovat % splnění'},
-    {key:'phase',label:'Jsem ve správné fázi? → Kontrola alokace'},
-  ];
+  // Review
+  const reviewItems=cfg.reviewItems||[];
   const isFirstWeek=new Date().getDate()<=7;
-  const doneCount=REVIEW_ITEMS.filter(i=>review[i.key]).length;
-  const reviewHTML=REVIEW_ITEMS.map(i=>{
+  const doneCount=reviewItems.filter(i=>review[i.key]).length;
+  const reviewHTML=reviewItems.map(i=>{
     const done=!!review[i.key];
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?'var(--success)10':'var(--surface2)'};border-radius:8px;cursor:pointer;margin-bottom:6px;${done?'opacity:.7;':''}" onclick="strategyToggleReview('${i.key}')">
       <div style="width:24px;height:24px;border-radius:6px;border:2px solid ${done?'var(--success)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--success);flex-shrink:0;">${done?'✓':''}</div>
@@ -7186,97 +7100,28 @@ function strategy(){
     </div>`;
   }).join('');
 
-  // Timeline chart — projected savings over time (SVG sparkline)
-  const timelineMonths=[];
-  const now=new Date();
-  for(let i=0;i<30;i++){
-    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
-    timelineMonths.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
-  }
-  const reserveStart=_strategyData().GOALS.find(g=>g.name.includes('Rezerva'))?.current||236578;
-  const investStart=_strategyData().GOALS.find(g=>g.name.includes('Investice'))?.current||62500;
-  const bytStart=_strategyData().GOALS.find(g=>g.name.includes('byt'))?.current||0;
-  const projections={reserve:[],invest:[],byt:[]};
-  let rV=reserveStart,iV=investStart,bV=bytStart;
-  timelineMonths.forEach((m,idx)=>{
-    const p=idx<9?1:idx<21?2:3;
-    const al=p===1?{r:10000,i:10000,b:6000}:p===2?{r:10000,i:10000,b:9500}:{r:13000,i:10000,b:15000};
-    rV+=al.r;iV+=al.i;bV+=al.b;
-    projections.reserve.push(rV);projections.invest.push(iV);projections.byt.push(bV);
-  });
-  const maxVal=Math.max(...projections.reserve,...projections.invest,...projections.byt,500000);
-  const svgW=600,svgH=180;
-  function toPath(vals,col){
-    return vals.map((v,i)=>{
-      const x=i/(vals.length-1)*svgW;
-      const y=svgH-(v/maxVal*svgH);
-      return (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1);
-    }).join(' ');
-  }
-  const targetLines=[
-    {val:500000,label:'Rezerva 500k',col:'#3b82f6'},
-    {val:300000,label:'Byt 300k',col:'#8b5cf6'},
-    {val:150000,label:'Investice 150k',col:'#10b981'},
-  ];
-  const targetLinesHTML=targetLines.map(t=>{
-    const y=(svgH-(t.val/maxVal*svgH)).toFixed(1);
-    return `<line x1="0" y1="${y}" x2="${svgW}" y2="${y}" stroke="${t.col}" stroke-width="1" stroke-dasharray="6,4" opacity=".5"/>
-      <text x="${svgW-5}" y="${parseFloat(y)-4}" fill="${t.col}" font-size="10" text-anchor="end" opacity=".7">${t.label}</text>`;
-  }).join('');
-
-  // Strategy rules
-  const RULES=[
-    {icon:'🔒',text:'Investice 10k a Rezerva 10k se NEŠKRTAJÍ — ani v těžkém měsíci'},
-    {icon:'📋',text:'Každý přebytek má pravidlo — nic nezůstává volně na běžném účtu'},
-    {icon:'🔄',text:'Po splacení dluhu se splátka NEPROMĚNÍ v spotřebu — okamžitě přesměrovat'},
-    {icon:'⚡',text:'Fáze se mění automaticky po splacení M1/M2'},
-    {icon:'📅',text:'Měsíční review je povinný — 1. v měsíci, 15 minut'},
-    {icon:'📊',text:'Kvartální bilance — každé 3 měsíce porovnat predikci vs. realitu'},
-  ];
-
-  // Income rules
-  const incomeRulesHTML=`
-    <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;margin-bottom:8px;border-left:4px solid var(--warning);">
-      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">📉 Příjem pod 75k</div>
-      <div style="font-size:12px;color:var(--text3);">Škrtat odspodu: nejdřív Buffer → pak Fond na byt. Investice a Rezerva se NEŠKRTAJÍ.</div>
-    </div>
-    <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;margin-bottom:8px;border-left:4px solid var(--success);">
-      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">📈 Příjem nad 75k</div>
-      <div style="font-size:12px;color:var(--text3);">Přebytek v pořadí: Fond na byt → Extra splátka M2 → Rezerva</div>
-    </div>
-    <div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border-left:4px solid #8b5cf6;">
-      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">🎁 Mimořádný příjem (bonus, extra faktura, Fuerto)</div>
-      <div style="font-size:12px;color:var(--text3);">Celý přebytek → Fond na byt nebo mimořádná splátka M2 (podle fáze)</div>
-    </div>`;
-
-  // Actions checklist for phase 1
-  if(!D.strategyActions) D.strategyActions={};
-  const ACTIONS_P1=[
-    {key:'callMoneta',text:'Zavolat na Monetu — zjistit podmínky předčasného splacení M2'},
-    {key:'refinM2',text:'Obejít 2–3 banky s nabídkou na refinancování M2 (138k)'},
-    {key:'refinAuto',text:'Obejít banky s nabídkou na refinancování Auto (203k)'},
-    {key:'openBytAcc',text:'Otevřít separátní účet "Fond na byt"'},
-    {key:'setupTransfers',text:'Nastavit 3 trvalé příkazy (investice, rezerva, byt)'},
-    {key:'startTracking',text:'Začít trackovat VŠECHNY příjmy a výdaje v dashboardu'},
-  ];
-  const actionsHTML=phase===1?ACTIONS_P1.map(a=>{
-    const done=!!D.strategyActions[a.key];
-    return `<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:${done?'var(--success)10':'var(--surface2)'};border-radius:8px;cursor:pointer;margin-bottom:4px;" onclick="(()=>{if(!D.strategyActions)D.strategyActions={};D.strategyActions['${a.key}']=!D.strategyActions['${a.key}'];save();renderMain();})()">
-      <div style="width:20px;height:20px;border-radius:5px;border:2px solid ${done?'var(--success)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--success);flex-shrink:0;">${done?'✓':''}</div>
-      <span style="font-size:13px;${done?'text-decoration:line-through;color:var(--text3);':''}">${a.text}</span>
-    </div>`;
-  }).join(''):'';
+  // Rules
+  const rules=cfg.rules||[];
 
   return `
     <div class="page-head">
       <div class="page-title">🎯 Finanční strategie</div>
-      <span class="chip" style="background:var(--primary);color:#fff;">Fáze ${phase}</span>
+      <div class="flex-c gap-2">
+        <span class="chip" style="background:var(--primary);color:#fff;">Fáze ${phase}</span>
+        <button class="btn btn-ghost btn-sm" onclick="_stratEdit=!_stratEdit;renderMain();">${_stratEdit?'✓ Hotovo':'✏️ Upravit'}</button>
+      </div>
     </div>
 
-    <!-- PHASE INDICATOR -->
-    <div style="display:flex;gap:8px;margin-bottom:20px;">
-      ${phaseHTML}
-    </div>
+    <!-- PHASES -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;">${phaseHTML}</div>
+    ${_stratEdit?`<div class="card mb-3"><div class="section-title mb-2">Upravit fáze</div>
+      ${(cfg.phases||[]).map((p,i)=>`<div class="flex-c gap-2 mb-2">
+        <input class="form-input" value="${p.label}" style="width:120px;" onchange="D.strategyConfig.phases[${i}].label=this.value;save();renderMain();">
+        <input class="form-input" value="${p.period}" style="width:140px;" onchange="D.strategyConfig.phases[${i}].period=this.value;save();renderMain();">
+        <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="D.strategyConfig.phases.splice(${i},1);save();renderMain();">🗑️</button>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" onclick="D.strategyConfig.phases.push({n:D.strategyConfig.phases.length+1,label:'Nová fáze',period:'...'});save();renderMain();">+ Přidat fázi</button>
+    </div>`:''}
 
     <!-- ALLOCATION + DONUT -->
     <div class="card mb-4">
@@ -7289,9 +7134,7 @@ function strategy(){
           </div>
         </div>
         <div style="position:relative;width:140px;height:140px;flex-shrink:0;">
-          <svg width="140" height="140" style="transform:rotate(-90deg);">
-            ${donutArcs.replace(/cx="60"/g,'cx="70"').replace(/cy="60"/g,'cy="70"')}
-          </svg>
+          <svg width="140" height="140" style="transform:rotate(-90deg);">${donutArcs}</svg>
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
             <div style="font-size:16px;font-weight:800;">${fmtAmt(totalAlloc)}</div>
             <div style="font-size:9px;color:var(--text3);">/MĚSÍC</div>
@@ -7299,77 +7142,67 @@ function strategy(){
         </div>
       </div>
     </div>
+    ${_stratEdit?`<div class="card mb-3"><div class="section-title mb-2">Upravit alokace</div>
+      ${alloc.map((a,i)=>`<div class="flex-c gap-2 mb-2">
+        <input class="form-input" value="${a.icon}" style="width:50px;text-align:center;" onchange="D.strategyConfig.alloc[${i}].icon=this.value;save();renderMain();">
+        <input class="form-input" value="${a.name}" style="flex:1;" onchange="D.strategyConfig.alloc[${i}].name=this.value;save();renderMain();">
+        <input type="number" class="form-input" value="${a.amount}" style="width:100px;" onchange="D.strategyConfig.alloc[${i}].amount=parseInt(this.value)||0;save();renderMain();">
+        <input type="color" value="${a.color}" style="width:40px;height:34px;border:none;cursor:pointer;" onchange="D.strategyConfig.alloc[${i}].color=this.value;save();renderMain();">
+        <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="D.strategyConfig.alloc.splice(${i},1);save();renderMain();">🗑️</button>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" onclick="D.strategyConfig.alloc.push({id:uid(),name:'Nová položka',amount:0,icon:'💰',color:'#64748b',rule:'...'});save();renderMain();">+ Přidat alokaci</button>
+    </div>`:''}
 
     <!-- INCOME RULES -->
     <div class="card mb-4">
       <div class="section-title mb-3">⚖️ Pravidla při změně příjmu</div>
       ${incomeRulesHTML}
     </div>
-
-    <!-- DEBTS -->
-    <div class="card mb-4">
-      <div class="section-title mb-3">💳 Dluhy — stav</div>
-      ${debtsHTML}
-    </div>
-
-    <!-- GOALS -->
-    <div class="card mb-4">
-      <div class="flex-b mb-3">
-        <div class="section-title">🏆 Dlouhodobé cíle</div>
-        <span class="text-sm text-muted">${GOALS.filter(g=>g.done).length}/${GOALS.length} splněno</span>
-      </div>
-      ${goalsHTML}
-    </div>
-
-    <!-- TIMELINE -->
-    <div class="card mb-4">
-      <div class="section-title mb-3">📈 Projekce (30 měsíců)</div>
-      <div style="overflow-x:auto;">
-        <svg width="${svgW}" height="${svgH+20}" style="width:100%;min-width:400px;">
-          ${targetLinesHTML}
-          <path d="${toPath(projections.reserve,'#3b82f6')}" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
-          <path d="${toPath(projections.invest,'#10b981')}" fill="none" stroke="#10b981" stroke-width="2.5"/>
-          <path d="${toPath(projections.byt,'#8b5cf6')}" fill="none" stroke="#8b5cf6" stroke-width="2.5"/>
-          <text x="5" y="${svgH+14}" fill="var(--text3)" font-size="10">${timelineMonths[0]}</text>
-          <text x="${svgW/2}" y="${svgH+14}" fill="var(--text3)" font-size="10" text-anchor="middle">${timelineMonths[Math.floor(timelineMonths.length/2)]}</text>
-          <text x="${svgW-5}" y="${svgH+14}" fill="var(--text3)" font-size="10" text-anchor="end">${timelineMonths[timelineMonths.length-1]}</text>
-        </svg>
-      </div>
-      <div class="flex-c gap-4 mt-2" style="justify-content:center;">
-        <span style="font-size:12px;"><span style="color:#3b82f6;">━</span> Rezerva</span>
-        <span style="font-size:12px;"><span style="color:#10b981;">━</span> Investice</span>
-        <span style="font-size:12px;"><span style="color:#8b5cf6;">━</span> Fond na byt</span>
-      </div>
-    </div>
+    ${_stratEdit?`<div class="card mb-3"><div class="section-title mb-2">Upravit pravidla příjmu</div>
+      ${(cfg.incomeRules||[]).map((r,i)=>`<div class="mb-2" style="padding:8px;background:var(--surface2);border-radius:8px;">
+        <div class="flex-c gap-2 mb-1">
+          <input class="form-input" value="${r.icon}" style="width:50px;text-align:center;" onchange="D.strategyConfig.incomeRules[${i}].icon=this.value;save();renderMain();">
+          <input class="form-input" value="${r.title}" style="flex:1;" onchange="D.strategyConfig.incomeRules[${i}].title=this.value;save();renderMain();">
+          <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="D.strategyConfig.incomeRules.splice(${i},1);save();renderMain();">🗑️</button>
+        </div>
+        <textarea class="form-input" rows="1" onchange="D.strategyConfig.incomeRules[${i}].text=this.value;save();renderMain();">${r.text}</textarea>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" onclick="D.strategyConfig.incomeRules.push({id:uid(),title:'Nové pravidlo',icon:'📌',color:'var(--primary)',text:'...'});save();renderMain();">+ Přidat pravidlo</button>
+    </div>`:''}
 
     <!-- MONTHLY REVIEW -->
     <div class="card mb-4" ${isFirstWeek?'style="border:2px solid var(--warning);"':''}>
       <div class="flex-b mb-3">
         <div class="section-title">${isFirstWeek?'⚠️':'📅'} Měsíční review — ${fmtMonth(cm)}</div>
-        <span class="text-sm ${doneCount===REVIEW_ITEMS.length?'text-success':'text-muted'}">${doneCount}/${REVIEW_ITEMS.length}</span>
+        <span class="text-sm ${doneCount===reviewItems.length?'text-success':'text-muted'}">${doneCount}/${reviewItems.length}</span>
       </div>
-      ${isFirstWeek&&doneCount<REVIEW_ITEMS.length?'<div class="dash-alert warn mb-3">Je začátek měsíce — čas na review!</div>':''}
+      ${isFirstWeek&&doneCount<reviewItems.length?'<div class="dash-alert warn mb-3">Je začátek měsíce — čas na review!</div>':''}
       ${reviewHTML}
     </div>
-
-    ${phase===1?`
-    <!-- PHASE 1 ACTIONS -->
-    <div class="card mb-4">
-      <div class="flex-b mb-3">
-        <div class="section-title">📝 Akce — Fáze 1</div>
-        <span class="text-sm text-muted">${ACTIONS_P1.filter(a=>D.strategyActions[a.key]).length}/${ACTIONS_P1.length}</span>
-      </div>
-      ${actionsHTML}
+    ${_stratEdit?`<div class="card mb-3"><div class="section-title mb-2">Upravit review položky</div>
+      ${reviewItems.map((r,i)=>`<div class="flex-c gap-2 mb-1">
+        <input class="form-input" value="${r.label}" style="flex:1;" onchange="D.strategyConfig.reviewItems[${i}].label=this.value;save();renderMain();">
+        <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="D.strategyConfig.reviewItems.splice(${i},1);save();renderMain();">🗑️</button>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" onclick="D.strategyConfig.reviewItems.push({key:uid(),label:'Nová položka'});save();renderMain();">+ Přidat</button>
     </div>`:''}
 
     <!-- RULES -->
     <div class="card mb-4">
       <div class="section-title mb-3">📜 Pravidla strategie</div>
-      ${RULES.map(r=>`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      ${rules.map(r=>`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
         <span style="font-size:16px;flex-shrink:0;">${r.icon}</span>
         <span>${r.text}</span>
       </div>`).join('')}
     </div>
+    ${_stratEdit?`<div class="card mb-3"><div class="section-title mb-2">Upravit pravidla</div>
+      ${rules.map((r,i)=>`<div class="flex-c gap-2 mb-1">
+        <input class="form-input" value="${r.icon}" style="width:50px;text-align:center;" onchange="D.strategyConfig.rules[${i}].icon=this.value;save();renderMain();">
+        <input class="form-input" value="${r.text}" style="flex:1;" onchange="D.strategyConfig.rules[${i}].text=this.value;save();renderMain();">
+        <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="D.strategyConfig.rules.splice(${i},1);save();renderMain();">🗑️</button>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" onclick="D.strategyConfig.rules.push({id:uid(),icon:'📌',text:'Nové pravidlo'});save();renderMain();">+ Přidat pravidlo</button>
+    </div>`:''}
   `;
 }
 
@@ -12851,9 +12684,82 @@ function lifegoals(){
   gl.forEach(g=>{const a=g.area||'growth';byArea[a]=(byArea[a]||0)+1;});
   const areaEntries=Object.entries(byArea).sort((a,b)=>b[1]-a[1]);
 
-  const tabs=`<div class="flex-c gap-2 mb-4">
-    ${['overview','active','vision','completed','review'].map(t=>`<span class="chip ${_goalTab===t?'active':''}" onclick="_goalTab='${t}';renderMain()">${{overview:'📊 Přehled',active:'🎯 Aktivní ('+active.length+')',vision:'🌟 Vize',completed:'✅ Splněné ('+completedCount+')',review:'📝 Review'}[t]}</span>`).join('')}
+  const tabs=`<div class="flex-c gap-2 mb-4" style="flex-wrap:wrap;">
+    ${['overview','active','vision','values','selftalk','completed','review'].map(t=>`<span class="chip ${_goalTab===t?'active':''}" onclick="_goalTab='${t}';renderMain()">${{overview:'📊 Přehled',active:'🎯 Aktivní ('+active.length+')',vision:'🌟 Vize',values:'💎 Hodnoty',selftalk:'🗣️ Self-talk',completed:'✅ Splněné ('+completedCount+')',review:'📝 Review'}[t]}</span>`).join('')}
   </div>`;
+
+  // ═══ VALUES TAB ═══
+  if(_goalTab==='values'){
+    if(!D.values) D.values=[];
+    const vals=D.values;
+    const sorted=[...vals].sort((a,b)=>(b.importance||5)-(a.importance||5));
+    return `<div class="page-head"><div class="page-title">🎯 Cíle & Vize</div><button class="btn btn-primary" onclick="openValueModal()">+ Nová hodnota</button></div>${tabs}
+      <div class="card mb-4" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:24px;">
+        <div style="font-size:20px;font-weight:800;margin-bottom:8px;">💎 Moje životní hodnoty</div>
+        <div style="font-size:13px;opacity:.9;">Hodnoty, podle kterých chceš žít. Hodnoť 1–10, jak moc je aktuálně naplňuješ.</div>
+      </div>
+      ${sorted.length===0?'<div class="card"><p class="text-muted text-sm">Přidej svou první hodnotu — co je pro tebe v životě důležité?</p></div>':''}
+      ${sorted.map((v,i)=>{
+        const pct=Math.round(((v.living||0)/10)*100);
+        const color=pct>=70?'var(--success)':pct>=40?'var(--warning)':'var(--danger)';
+        return`<div class="card mb-2" style="border-left:4px solid ${v.color||'var(--primary)'};">
+          <div class="flex-b" style="margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:28px;">${v.icon||'💎'}</span>
+              <div>
+                <div style="font-size:15px;font-weight:700;">${v.name}</div>
+                <div style="font-size:11px;color:var(--text3);">Důležitost: ${'★'.repeat(v.importance||5)}${'☆'.repeat(10-(v.importance||5))}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="text-align:right;">
+                <div style="font-size:22px;font-weight:800;color:${color};">${v.living||0}/10</div>
+                <div style="font-size:10px;color:var(--text3);">naplnění</div>
+              </div>
+              <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openValueModal('${v.id}')">✏️</button>
+              <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="event.stopPropagation();if(confirm('Smazat hodnotu?')){D.values=D.values.filter(x=>x.id!=='${v.id}');save();renderMain();}">🗑️</button>
+            </div>
+          </div>
+          ${v.description?`<div style="font-size:12px;color:var(--text2);margin-bottom:6px;">${v.description}</div>`:''}
+          <div style="height:6px;background:var(--surface2);border-radius:100px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${color};border-radius:100px;"></div>
+          </div>
+          ${v.actions?`<div style="font-size:11px;color:var(--text3);margin-top:6px;">📌 ${v.actions}</div>`:''}
+        </div>`;
+      }).join('')}
+      ${sorted.length>0?`<div class="card mt-3"><div class="section-title mb-2">📊 Souhrn</div>
+        <div style="font-size:13px;color:var(--text2);">Průměrné naplnění hodnot: <strong style="color:var(--primary);">${(sorted.reduce((s,v)=>s+(v.living||0),0)/sorted.length).toFixed(1)}/10</strong></div>
+      </div>`:''}`;
+  }
+
+  // ═══ SELF-TALK TAB ═══
+  if(_goalTab==='selftalk'){
+    if(!D.selfTalk) D.selfTalk=[];
+    const talks=D.selfTalk;
+    const cats={affirmation:'💪 Afirmace',mantra:'🕉️ Mantra',reminder:'🔔 Připomínka',quote:'💬 Citát',belief:'🧠 Přesvědčení'};
+    const sorted=[...talks].sort((a,b)=>new Date(b.created||0)-new Date(a.created||0));
+    const pinned=sorted.filter(t=>t.pinned);
+    const rest=sorted.filter(t=>!t.pinned);
+    // Random daily pick
+    const today=new Date().toISOString().slice(0,10);
+    const dailySeed=today.split('-').reduce((s,n)=>s+parseInt(n),0);
+    const dailyPick=talks.length>0?talks[dailySeed%talks.length]:null;
+
+    return `<div class="page-head"><div class="page-title">🎯 Cíle & Vize</div><button class="btn btn-primary" onclick="openSelfTalkModal()">+ Nový záznam</button></div>${tabs}
+      ${dailyPick?`<div class="card mb-4" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;padding:24px;text-align:center;">
+        <div style="font-size:12px;opacity:.7;margin-bottom:8px;">🌅 Dnešní self-talk</div>
+        <div style="font-size:20px;font-weight:800;line-height:1.4;">"${dailyPick.text}"</div>
+        ${dailyPick.category?`<div style="font-size:11px;opacity:.7;margin-top:8px;">${cats[dailyPick.category]||dailyPick.category}</div>`:''}
+      </div>`:''}
+      ${pinned.length>0?`<div class="card mb-3"><div class="section-title mb-3">📌 Připnuté</div>
+        ${pinned.map(t=>renderSelfTalkItem(t,cats)).join('')}
+      </div>`:''}
+      <div class="card">
+        <div class="section-title mb-3">🗣️ Všechny záznamy (${talks.length})</div>
+        ${rest.length===0&&pinned.length===0?'<p class="text-muted text-sm">Přidej si první afirmaci, mantru nebo motivační citát!</p>':''}
+        ${rest.map(t=>renderSelfTalkItem(t,cats)).join('')}
+      </div>`;
+  }
 
   // ═══ ACTIVE TAB ═══
   if(_goalTab==='active'){
@@ -13212,6 +13118,75 @@ function toggleGoalActivity(goalId,idx){
 function removeGoalItem(goalId,arr,idx){
   const g=D.lifeGoals.find(x=>x.id===goalId);if(!g||!g[arr])return;
   g[arr].splice(idx,1);save();renderMain();
+}
+
+function renderSelfTalkItem(t,cats){
+  return`<div style="padding:12px;border-radius:10px;background:var(--surface2);margin-bottom:8px;position:relative;">
+    <div class="flex-b" style="margin-bottom:4px;">
+      <span style="font-size:11px;padding:2px 8px;border-radius:100px;background:var(--primary-light);color:var(--primary);font-weight:600;">${cats[t.category]||'💬'}</span>
+      <div style="display:flex;gap:4px;">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="D.selfTalk.find(x=>x.id==='${t.id}').pinned=!D.selfTalk.find(x=>x.id==='${t.id}').pinned;save();renderMain();" title="${t.pinned?'Odepnout':'Připnout'}">${t.pinned?'📌':'📍'}</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="openSelfTalkModal('${t.id}')">✏️</button>
+        <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="if(confirm('Smazat?')){D.selfTalk=D.selfTalk.filter(x=>x.id!=='${t.id}');save();renderMain();}">🗑️</button>
+      </div>
+    </div>
+    <div style="font-size:14px;font-weight:600;line-height:1.5;">"${t.text}"</div>
+    ${t.note?`<div style="font-size:11px;color:var(--text3);margin-top:4px;">${t.note}</div>`:''}
+    <div style="font-size:10px;color:var(--text3);margin-top:4px;">${t.created?new Date(t.created).toLocaleDateString('cs-CZ'):''}</div>
+  </div>`;
+}
+
+function openValueModal(editId){
+  const v=editId?(D.values||[]).find(x=>x.id===editId):null;
+  openModal(v?'✏️ Upravit hodnotu':'💎 Nová hodnota',`
+    <input type="hidden" id="val-edit" value="${v?v.id:''}">
+    <div class="form-group"><label class="form-label">Název hodnoty</label><input class="form-input" id="val-name" value="${v?v.name:''}" placeholder="např. Rodina, Svoboda, Odvaha..."></div>
+    <div class="fr fr3">
+      <div class="form-group"><label class="form-label">Ikona</label><input class="form-input" id="val-icon" value="${v?v.icon||'':'💎'}" style="width:60px;text-align:center;font-size:18px;"></div>
+      <div class="form-group"><label class="form-label">Důležitost (1-10)</label><input type="number" min="1" max="10" class="form-input" id="val-imp" value="${v?v.importance||5:5}"></div>
+      <div class="form-group"><label class="form-label">Naplnění (1-10)</label><input type="number" min="0" max="10" class="form-input" id="val-living" value="${v?v.living||0:0}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Barva</label><input type="color" class="form-input" id="val-color" value="${v?v.color||'#f59e0b':'#f59e0b'}" style="height:38px;"></div>
+    <div class="form-group"><label class="form-label">Co to pro mě znamená?</label><textarea class="form-input" id="val-desc" rows="2" placeholder="Definice...">${v?v.description||'':''}</textarea></div>
+    <div class="form-group"><label class="form-label">Jak ji chci naplňovat?</label><textarea class="form-input" id="val-actions" rows="2" placeholder="Konkrétní kroky...">${v?v.actions||'':''}</textarea></div>`,
+    `<button class="btn btn-primary" onclick="saveValue()">Uložit</button>
+     <button class="btn btn-ghost" onclick="closeModal()">Zrušit</button>`);
+}
+function saveValue(){
+  const name=document.getElementById('val-name').value.trim();
+  if(!name){alert('Zadej název');return;}
+  if(!D.values) D.values=[];
+  const editId=document.getElementById('val-edit').value;
+  const obj={id:editId||uid(),name,icon:document.getElementById('val-icon').value.trim()||'💎',importance:parseInt(document.getElementById('val-imp').value)||5,living:parseInt(document.getElementById('val-living').value)||0,color:document.getElementById('val-color').value,description:document.getElementById('val-desc').value.trim(),actions:document.getElementById('val-actions').value.trim()};
+  if(editId){const i=D.values.findIndex(x=>x.id===editId);if(i>=0)D.values[i]=obj;}
+  else D.values.push(obj);
+  save();closeModal();renderMain();
+}
+
+function openSelfTalkModal(editId){
+  const t=editId?(D.selfTalk||[]).find(x=>x.id===editId):null;
+  const cats={affirmation:'💪 Afirmace',mantra:'🕉️ Mantra',reminder:'🔔 Připomínka',quote:'💬 Citát',belief:'🧠 Přesvědčení'};
+  openModal(t?'✏️ Upravit':'🗣️ Nový self-talk',`
+    <input type="hidden" id="st-edit" value="${t?t.id:''}">
+    <div class="form-group"><label class="form-label">Text</label><textarea class="form-input" id="st-text" rows="3" placeholder="Co si chceš říkat...">${t?t.text||'':''}</textarea></div>
+    <div class="fr fr2">
+      <div class="form-group"><label class="form-label">Kategorie</label><select class="form-input" id="st-cat">${Object.entries(cats).map(([k,v])=>`<option value="${k}" ${t&&t.category===k?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">Poznámka</label><input class="form-input" id="st-note" value="${t?t.note||'':''}" placeholder="Kontext..."></div>
+    </div>
+    <label class="check-row"><input type="checkbox" id="st-pin" ${t&&t.pinned?'checked':''}> 📌 Připnout navrch</label>`,
+    `<button class="btn btn-primary" onclick="saveSelfTalk()">Uložit</button>
+     <button class="btn btn-ghost" onclick="closeModal()">Zrušit</button>`);
+}
+function saveSelfTalk(){
+  const text=document.getElementById('st-text').value.trim();
+  if(!text){alert('Zadej text');return;}
+  if(!D.selfTalk) D.selfTalk=[];
+  const editId=document.getElementById('st-edit').value;
+  const existing=editId?D.selfTalk.find(x=>x.id===editId):null;
+  const obj={id:editId||uid(),text,category:document.getElementById('st-cat').value,note:document.getElementById('st-note').value.trim(),pinned:document.getElementById('st-pin').checked,created:existing?existing.created:new Date().toISOString()};
+  if(editId){const i=D.selfTalk.findIndex(x=>x.id===editId);if(i>=0)D.selfTalk[i]=obj;}
+  else D.selfTalk.push(obj);
+  save();closeModal();renderMain();
 }
 
 function lgImgPick(e){
