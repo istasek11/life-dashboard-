@@ -12861,13 +12861,6 @@ function lifegoals(){
     <div class="page-head"><div class="page-title">🎯 Cíle & Vize</div>
       <button class="btn btn-primary" onclick="openLifeGoalModal()">+ Nový cíl</button>
     </div>${tabs}
-    <div class="g4 mb-4" style="grid-template-columns:repeat(5,1fr);">
-      <div class="card dash-kpi"><div class="dash-kpi-label">Celkem cílů</div><div class="dash-kpi-val">${totalGoals}</div></div>
-      <div class="card dash-kpi"><div class="dash-kpi-label">Aktivních</div><div class="dash-kpi-val">${active.length}</div></div>
-      <div class="card dash-kpi"><div class="dash-kpi-label">Ø Pokrok</div><div class="dash-kpi-val" style="color:${avgProgress>=50?'var(--success)':'var(--warning)'};">${avgProgress}%</div></div>
-      <div class="card dash-kpi"><div class="dash-kpi-label">Splněno</div><div class="dash-kpi-val pos">${completedCount}</div></div>
-      <div class="card dash-kpi"><div class="dash-kpi-label">Po termínu</div><div class="dash-kpi-val ${overdue>0?'neg':''}">${overdue}</div></div>
-    </div>
 
     ${overdue>0?`<div class="card mb-4" style="border-left:4px solid var(--danger);"><div class="section-title mb-2" style="color:var(--danger);">⚠️ Po termínu (${overdue})</div>
       ${active.filter(g=>g.deadline&&new Date(g.deadline)<new Date()).map(g=>renderGoalCard(g)).join('')}
@@ -12877,24 +12870,14 @@ function lifegoals(){
       ${active.filter(g=>{if(!g.deadline)return false;const d=Math.ceil((new Date(g.deadline)-new Date())/86400000);return d>=0&&d<=30;}).map(g=>renderGoalCard(g)).join('')}
     </div>`:''}
 
-    <div class="g2 mb-4">
-      <div class="card">
-        <div class="section-title mb-3">📊 Pokrok podle oblasti</div>
-        ${areaEntries.map(([a,cnt])=>{
-          const aGoals=gl.filter(g=>g.area===a);const avgP=aGoals.length>0?Math.round(aGoals.reduce((s,g)=>s+(g.target>0?Math.min(100,(g.current||0)/g.target*100):0),0)/aGoals.length):0;
-          return`<div style="margin-bottom:10px;"><div class="flex-b" style="font-size:12px;margin-bottom:3px;"><span>${GOAL_AREAS[a]||a}</span><span style="font-weight:700;">${cnt} cílů · Ø ${avgP}%</span></div><div style="height:7px;background:var(--surface2);border-radius:100px;overflow:hidden;"><div style="height:100%;width:${avgP}%;background:var(--primary);border-radius:100px;"></div></div></div>`;
-        }).join('')}
-        ${areaEntries.length===0?'<p class="text-muted text-sm">Přidej cíle pro zobrazení.</p>':''}
-      </div>
-      <div class="card">
-        <div class="section-title mb-3">🌟 Vision Board</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-          ${gl.filter(g=>g.vision).slice(0,9).map(g=>`<div style="padding:12px;border-radius:12px;background:var(--surface2);text-align:center;cursor:pointer;" onclick="_goalDetail='${g.id}';renderMain();">
-            <div style="font-size:24px;">${g.icon||'🌟'}</div>
-            <div style="font-size:10px;font-weight:600;margin-top:4px;">${g.title}</div>
-          </div>`).join('')}
-          ${gl.filter(g=>g.vision).length===0?'<p class="text-muted text-sm">Označ cíle jako Vizi.</p>':''}
-        </div>
+    <div class="card mb-4">
+      <div class="section-title mb-3">🌟 Vision Board</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        ${gl.filter(g=>g.vision).slice(0,9).map(g=>`<div style="padding:12px;border-radius:12px;background:var(--surface2);text-align:center;cursor:pointer;" onclick="_goalDetail='${g.id}';renderMain();">
+          <div style="font-size:24px;">${g.icon||'🌟'}</div>
+          <div style="font-size:10px;font-weight:600;margin-top:4px;">${g.title}</div>
+        </div>`).join('')}
+        ${gl.filter(g=>g.vision).length===0?'<p class="text-muted text-sm">Označ cíle jako Vizi.</p>':''}
       </div>
     </div>
 
