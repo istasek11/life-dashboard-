@@ -12688,8 +12688,80 @@ function lifegoals(){
   const areaEntries=Object.entries(byArea).sort((a,b)=>b[1]-a[1]);
 
   const tabs=`<div class="flex-c gap-2 mb-4" style="flex-wrap:wrap;">
-    ${['overview','active','vision','values','selftalk','completed','review'].map(t=>`<span class="chip ${_goalTab===t?'active':''}" onclick="_goalTab='${t}';renderMain()">${{overview:'📊 Přehled',active:'🎯 Aktivní ('+active.length+')',vision:'🌟 Vize',values:'💎 Hodnoty',selftalk:'🗣️ Self-talk',completed:'✅ Splněné ('+completedCount+')',review:'📝 Review'}[t]}</span>`).join('')}
+    ${['overview','active','vision','mystrategy','values','selftalk','completed','review'].map(t=>`<span class="chip ${_goalTab===t?'active':''}" onclick="_goalTab='${t}';renderMain()">${{overview:'📊 Přehled',active:'🎯 Aktivní ('+active.length+')',vision:'🌟 Vize',mystrategy:'📋 Strategie',values:'💎 Hodnoty',selftalk:'🗣️ Self-talk',completed:'✅ Splněné ('+completedCount+')',review:'📝 Review'}[t]}</span>`).join('')}
   </div>`;
+
+  // ═══ MY STRATEGY TAB ═══
+  if(_goalTab==='mystrategy'){
+    if(!D.myStrategy) D.myStrategy={categories:[],items:[]};
+    const ms=D.myStrategy;
+    const cats=ms.categories||[];
+    const items=ms.items||[];
+    const activeCat=ms._activeCat||'all';
+    const filtered=activeCat==='all'?items:items.filter(i=>i.category===activeCat);
+
+    return `<div class="page-head"><div class="page-title">🎯 Cíle & Vize</div>
+      <div class="flex-c gap-2">
+        <button class="btn btn-ghost" onclick="openStrategyCatModal()">+ Kategorie</button>
+        <button class="btn btn-primary" onclick="openStrategyItemModal()">+ Nový bod</button>
+      </div>
+    </div>${tabs}
+      <div class="card mb-4" style="background:linear-gradient(135deg,#1e40af,#7c3aed);color:#fff;border:none;padding:24px;">
+        <div style="font-size:20px;font-weight:800;margin-bottom:8px;">📋 Moje strategie</div>
+        <div style="font-size:13px;opacity:.9;">Strategické body a plány rozdělené podle vlastních kategorií.</div>
+      </div>
+      <div class="flex-c gap-2 mb-4" style="flex-wrap:wrap;">
+        <span class="chip ${activeCat==='all'?'active':''}" onclick="D.myStrategy._activeCat='all';save();renderMain();">Vše (${items.length})</span>
+        ${cats.map(c=>{
+          const cnt=items.filter(i=>i.category===c.id).length;
+          return`<span class="chip ${activeCat===c.id?'active':''}" onclick="D.myStrategy._activeCat='${c.id}';save();renderMain();">${c.icon||'📁'} ${c.name} (${cnt})</span>`;
+        }).join('')}
+      </div>
+      ${filtered.length===0?'<div class="card"><p class="text-muted text-sm">Zatím žádné strategické body. Přidej první!</p></div>':''}
+      ${cats.filter(c=>activeCat==='all'||activeCat===c.id).map(c=>{
+        const catItems=filtered.filter(i=>i.category===c.id);
+        if(catItems.length===0&&activeCat==='all') return '';
+        return `<div class="card mb-3">
+          <div class="flex-b mb-3">
+            <div class="section-title">${c.icon||'📁'} ${c.name}</div>
+            <div class="flex-c gap-2">
+              <button class="btn btn-ghost btn-sm" onclick="openStrategyItemModal(null,'${c.id}')">+ Přidat</button>
+              <button class="btn btn-ghost btn-sm btn-icon" onclick="openStrategyCatModal('${c.id}')">✏️</button>
+              <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="if(confirm('Smazat kategorii ${c.name} a všechny body v ní?')){D.myStrategy.categories=D.myStrategy.categories.filter(x=>x.id!=='${c.id}');D.myStrategy.items=D.myStrategy.items.filter(x=>x.category!=='${c.id}');save();renderMain();}">🗑️</button>
+            </div>
+          </div>
+          ${catItems.map(item=>`<div style="padding:12px;border-radius:10px;background:var(--surface2);margin-bottom:8px;border-left:4px solid ${c.color||'var(--primary)'};">
+            <div class="flex-b">
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;">${item.title}</div>
+                ${item.text?`<div style="font-size:12px;color:var(--text2);margin-top:4px;white-space:pre-wrap;line-height:1.6;">${item.text}</div>`:''}
+              </div>
+              <div class="flex-c gap-2" style="flex-shrink:0;margin-left:12px;">
+                <button class="btn btn-ghost btn-sm btn-icon" onclick="openStrategyItemModal('${item.id}')">✏️</button>
+                <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="D.myStrategy.items=D.myStrategy.items.filter(x=>x.id!=='${item.id}');save();renderMain();">🗑️</button>
+              </div>
+            </div>
+          </div>`).join('')}
+        </div>`;
+      }).join('')}
+      ${(()=>{
+        const uncategorized=filtered.filter(i=>!cats.find(c=>c.id===i.category));
+        if(uncategorized.length===0) return '';
+        return `<div class="card mb-3"><div class="section-title mb-3">📌 Bez kategorie</div>
+          ${uncategorized.map(item=>`<div style="padding:12px;border-radius:10px;background:var(--surface2);margin-bottom:8px;">
+            <div class="flex-b">
+              <div style="flex:1;"><div style="font-size:14px;font-weight:700;">${item.title}</div>
+                ${item.text?`<div style="font-size:12px;color:var(--text2);margin-top:4px;white-space:pre-wrap;line-height:1.6;">${item.text}</div>`:''}
+              </div>
+              <div class="flex-c gap-2" style="flex-shrink:0;margin-left:12px;">
+                <button class="btn btn-ghost btn-sm btn-icon" onclick="openStrategyItemModal('${item.id}')">✏️</button>
+                <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="D.myStrategy.items=D.myStrategy.items.filter(x=>x.id!=='${item.id}');save();renderMain();">🗑️</button>
+              </div>
+            </div>
+          </div>`).join('')}
+        </div>`;
+      })()}`;
+  }
 
   // ═══ VALUES TAB ═══
   if(_goalTab==='values'){
@@ -13159,6 +13231,60 @@ function saveSelfTalk(){
   const obj={id:editId||uid(),text,category:document.getElementById('st-cat').value,note:document.getElementById('st-note').value.trim(),pinned:document.getElementById('st-pin').checked,created:existing?existing.created:new Date().toISOString()};
   if(editId){const i=D.selfTalk.findIndex(x=>x.id===editId);if(i>=0)D.selfTalk[i]=obj;}
   else D.selfTalk.push(obj);
+  save();closeModal();renderMain();
+}
+
+// ═══ MY STRATEGY MODALS ═══
+function openStrategyCatModal(editId){
+  if(!D.myStrategy) D.myStrategy={categories:[],items:[]};
+  const c=editId?(D.myStrategy.categories||[]).find(x=>x.id===editId):null;
+  openModal(c?'✏️ Upravit kategorii':'📁 Nová kategorie',`
+    <input type="hidden" id="sc-edit" value="${c?c.id:''}">
+    <div class="fr fr3">
+      <div class="form-group"><label class="form-label">Název</label><input class="form-input" id="sc-name" value="${c?c.name:''}" placeholder="např. Business, Finance, Sport..."></div>
+      <div class="form-group"><label class="form-label">Ikona</label><input class="form-input" id="sc-icon" value="${c?c.icon||'':'📁'}" style="width:60px;text-align:center;font-size:18px;"></div>
+      <div class="form-group"><label class="form-label">Barva</label><input type="color" class="form-input" id="sc-color" value="${c?c.color||'#7c3aed':'#7c3aed'}" style="height:38px;"></div>
+    </div>`,
+    `<button class="btn btn-primary" onclick="saveStrategyCat()">Uložit</button>
+     <button class="btn btn-ghost" onclick="closeModal()">Zrušit</button>`);
+}
+function saveStrategyCat(){
+  const name=document.getElementById('sc-name').value.trim();
+  if(!name){alert('Zadej název');return;}
+  if(!D.myStrategy) D.myStrategy={categories:[],items:[]};
+  if(!D.myStrategy.categories) D.myStrategy.categories=[];
+  const editId=document.getElementById('sc-edit').value;
+  const obj={id:editId||uid(),name,icon:document.getElementById('sc-icon').value.trim()||'📁',color:document.getElementById('sc-color').value};
+  if(editId){const i=D.myStrategy.categories.findIndex(x=>x.id===editId);if(i>=0)D.myStrategy.categories[i]=obj;}
+  else D.myStrategy.categories.push(obj);
+  save();closeModal();renderMain();
+}
+function openStrategyItemModal(editId,presetCat){
+  if(!D.myStrategy) D.myStrategy={categories:[],items:[]};
+  const item=editId?(D.myStrategy.items||[]).find(x=>x.id===editId):null;
+  const cats=D.myStrategy.categories||[];
+  openModal(item?'✏️ Upravit bod':'📋 Nový strategický bod',`
+    <input type="hidden" id="si-edit" value="${item?item.id:''}">
+    <div class="fr fr2">
+      <div class="form-group"><label class="form-label">Nadpis</label><input class="form-input" id="si-title" value="${item?item.title:''}" placeholder="Strategický bod..."></div>
+      <div class="form-group"><label class="form-label">Kategorie</label><select class="form-input" id="si-cat">
+        ${cats.map(c=>`<option value="${c.id}" ${(item&&item.category===c.id)||(presetCat===c.id)?'selected':''}>${c.icon||'📁'} ${c.name}</option>`).join('')}
+        ${cats.length===0?'<option value="">— nejdřív vytvoř kategorii —</option>':''}
+      </select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Popis / Detail</label><textarea class="form-input" id="si-text" rows="4" placeholder="Rozpiš strategii, kroky, pravidla...">${item?item.text||'':''}</textarea></div>`,
+    `<button class="btn btn-primary" onclick="saveStrategyItem()">Uložit</button>
+     <button class="btn btn-ghost" onclick="closeModal()">Zrušit</button>`);
+}
+function saveStrategyItem(){
+  const title=document.getElementById('si-title').value.trim();
+  if(!title){alert('Zadej nadpis');return;}
+  if(!D.myStrategy) D.myStrategy={categories:[],items:[]};
+  if(!D.myStrategy.items) D.myStrategy.items=[];
+  const editId=document.getElementById('si-edit').value;
+  const obj={id:editId||uid(),title,category:document.getElementById('si-cat').value,text:document.getElementById('si-text').value.trim()};
+  if(editId){const i=D.myStrategy.items.findIndex(x=>x.id===editId);if(i>=0)D.myStrategy.items[i]=obj;}
+  else D.myStrategy.items.push(obj);
   save();closeModal();renderMain();
 }
 
