@@ -12718,22 +12718,22 @@ function lifegoals(){
         }).join('')}
       </div>
       ${filtered.length===0?'<div class="card"><p class="text-muted text-sm">Zatím žádné strategické body. Přidej první!</p></div>':''}
-      ${cats.filter(c=>activeCat==='all'||activeCat===c.id).map(c=>{
+      ${cats.filter(c=>activeCat==='all'||activeCat===c.id).map((c,ci)=>{
         const catItems=filtered.filter(i=>i.category===c.id);
         if(catItems.length===0&&activeCat==='all') return '';
-        return `<div class="card mb-3">
+        return `<div class="card mb-3" draggable="true" ondragstart="_msDragType='cat';_msDragId='${c.id}';event.dataTransfer.effectAllowed='move';" ondragover="event.preventDefault();this.style.outline='2px dashed var(--primary)';" ondragleave="this.style.outline='';" ondrop="this.style.outline='';msDropCat('${c.id}');">
           <div class="flex-b mb-3">
-            <div class="section-title">${c.icon||'📁'} ${c.name}</div>
+            <div class="section-title" style="cursor:grab;">⠿ ${c.icon||'📁'} ${c.name}</div>
             <div class="flex-c gap-2">
               <button class="btn btn-ghost btn-sm" onclick="openStrategyItemModal(null,'${c.id}')">+ Přidat</button>
               <button class="btn btn-ghost btn-sm btn-icon" onclick="openStrategyCatModal('${c.id}')">✏️</button>
               <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="if(confirm('Smazat kategorii ${c.name} a všechny body v ní?')){D.myStrategy.categories=D.myStrategy.categories.filter(x=>x.id!=='${c.id}');D.myStrategy.items=D.myStrategy.items.filter(x=>x.category!=='${c.id}');save();renderMain();}">🗑️</button>
             </div>
           </div>
-          ${catItems.map(item=>`<div style="padding:12px;border-radius:10px;background:var(--surface2);margin-bottom:8px;border-left:4px solid ${c.color||'var(--primary)'};">
+          ${catItems.map((item,ii)=>`<div style="padding:12px;border-radius:10px;background:var(--surface2);margin-bottom:8px;border-left:4px solid ${c.color||'var(--primary)'};cursor:grab;" draggable="true" ondragstart="event.stopPropagation();_msDragType='item';_msDragId='${item.id}';" ondragover="event.preventDefault();event.stopPropagation();this.style.outline='2px dashed var(--primary)';" ondragleave="this.style.outline='';" ondrop="event.stopPropagation();this.style.outline='';msDropItem('${item.id}');">
             <div class="flex-b">
               <div style="flex:1;">
-                <div style="font-size:14px;font-weight:700;">${item.title}</div>
+                <div style="font-size:14px;font-weight:700;">⠿ ${item.title}</div>
                 ${item.text?`<div style="font-size:12px;color:var(--text2);margin-top:4px;white-space:pre-wrap;line-height:1.6;">${item.text}</div>`:''}
               </div>
               <div class="flex-c gap-2" style="flex-shrink:0;margin-left:12px;">
@@ -13232,6 +13232,32 @@ function saveSelfTalk(){
   if(editId){const i=D.selfTalk.findIndex(x=>x.id===editId);if(i>=0)D.selfTalk[i]=obj;}
   else D.selfTalk.push(obj);
   save();closeModal();renderMain();
+}
+
+// ═══ MY STRATEGY DRAG & DROP ═══
+var _msDragType=null, _msDragId=null;
+function msDropCat(targetId){
+  if(_msDragType!=='cat'||!_msDragId||_msDragId===targetId) return;
+  const arr=D.myStrategy.categories;
+  const fromIdx=arr.findIndex(x=>x.id===_msDragId);
+  const toIdx=arr.findIndex(x=>x.id===targetId);
+  if(fromIdx<0||toIdx<0) return;
+  const item=arr.splice(fromIdx,1)[0];
+  arr.splice(toIdx,0,item);
+  save();renderMain();
+}
+function msDropItem(targetId){
+  if(_msDragType!=='item'||!_msDragId||_msDragId===targetId) return;
+  const arr=D.myStrategy.items;
+  const fromIdx=arr.findIndex(x=>x.id===_msDragId);
+  const toIdx=arr.findIndex(x=>x.id===targetId);
+  if(fromIdx<0||toIdx<0) return;
+  const item=arr.splice(fromIdx,1)[0];
+  // Move to target's category if different
+  const target=arr[toIdx>=arr.length?arr.length-1:toIdx];
+  if(target) item.category=target.category;
+  arr.splice(toIdx,0,item);
+  save();renderMain();
 }
 
 // ═══ MY STRATEGY MODALS ═══
