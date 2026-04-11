@@ -12699,40 +12699,27 @@ function lifegoals(){
     return `<div class="page-head"><div class="page-title">🎯 Cíle & Vize</div><button class="btn btn-primary" onclick="openValueModal()">+ Nová hodnota</button></div>${tabs}
       <div class="card mb-4" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:24px;">
         <div style="font-size:20px;font-weight:800;margin-bottom:8px;">💎 Moje životní hodnoty</div>
-        <div style="font-size:13px;opacity:.9;">Hodnoty, podle kterých chceš žít. Hodnoť 1–10, jak moc je aktuálně naplňuješ.</div>
+        <div style="font-size:13px;opacity:.9;">Hodnoty, podle kterých chceš žít.</div>
       </div>
       ${sorted.length===0?'<div class="card"><p class="text-muted text-sm">Přidej svou první hodnotu — co je pro tebe v životě důležité?</p></div>':''}
       ${sorted.map((v,i)=>{
-        const pct=Math.round(((v.living||0)/10)*100);
-        const color=pct>=70?'var(--success)':pct>=40?'var(--warning)':'var(--danger)';
         return`<div class="card mb-2" style="border-left:4px solid ${v.color||'var(--primary)'};">
-          <div class="flex-b" style="margin-bottom:8px;">
+          <div class="flex-b">
             <div style="display:flex;align-items:center;gap:10px;">
               <span style="font-size:28px;">${v.icon||'💎'}</span>
               <div>
                 <div style="font-size:15px;font-weight:700;">${v.name}</div>
-                <div style="font-size:11px;color:var(--text3);">Důležitost: ${'★'.repeat(v.importance||5)}${'☆'.repeat(10-(v.importance||5))}</div>
+                ${v.description?`<div style="font-size:12px;color:var(--text2);margin-top:2px;">${v.description}</div>`:''}
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <div style="text-align:right;">
-                <div style="font-size:22px;font-weight:800;color:${color};">${v.living||0}/10</div>
-                <div style="font-size:10px;color:var(--text3);">naplnění</div>
-              </div>
+            <div style="display:flex;align-items:center;gap:4px;">
               <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openValueModal('${v.id}')">✏️</button>
               <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="event.stopPropagation();if(confirm('Smazat hodnotu?')){D.values=D.values.filter(x=>x.id!=='${v.id}');save();renderMain();}">🗑️</button>
             </div>
           </div>
-          ${v.description?`<div style="font-size:12px;color:var(--text2);margin-bottom:6px;">${v.description}</div>`:''}
-          <div style="height:6px;background:var(--surface2);border-radius:100px;overflow:hidden;">
-            <div style="height:100%;width:${pct}%;background:${color};border-radius:100px;"></div>
-          </div>
           ${v.actions?`<div style="font-size:11px;color:var(--text3);margin-top:6px;">📌 ${v.actions}</div>`:''}
         </div>`;
-      }).join('')}
-      ${sorted.length>0?`<div class="card mt-3"><div class="section-title mb-2">📊 Souhrn</div>
-        <div style="font-size:13px;color:var(--text2);">Průměrné naplnění hodnot: <strong style="color:var(--primary);">${(sorted.reduce((s,v)=>s+(v.living||0),0)/sorted.length).toFixed(1)}/10</strong></div>
-      </div>`:''}`;
+      }).join('')}`;
   }
 
   // ═══ SELF-TALK TAB ═══
