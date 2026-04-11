@@ -15029,10 +15029,10 @@ function openBucketModal(editId){
       <div class="form-group"><label class="form-label">Odhadované náklady</label><input type="number" class="form-input" id="bl-cost" value="${b?b.estCost||'':''}" placeholder="Kč"></div>
       <div class="form-group"><label class="form-label">Nejlepší období</label><input class="form-input" id="bl-season" value="${b?b.season||'':''}" placeholder="např. květen–září"></div>
     </div>
-    <label class="check-row"><input type="checkbox" id="bl-visited" ${b&&b.visited?'checked':''}> ✅ Už navštíveno</label>
+    <label class="check-row"><input type="checkbox" id="bl-visited" ${b&&b.visited?'checked':''} onchange="document.getElementById('bl-vdate-wrap').style.display=this.checked?'':'none';"> ✅ Už navštíveno</label>
     <div class="form-group" id="bl-vdate-wrap" style="${b&&b.visited?'':'display:none'}"><label class="form-label">Datum návštěvy</label><input type="date" class="form-input" id="bl-vdate" value="${b?b.visitedDate||'':''}"></div>
     <div class="form-group"><label class="form-label">Poznámky / Co chci vidět</label><textarea class="form-input" id="bl-note" rows="2" placeholder="Zajímavá místa, tipy...">${b?b.note||'':''}</textarea></div>
-    <script>document.getElementById('bl-visited').onchange=function(){document.getElementById('bl-vdate-wrap').style.display=this.checked?'':'none';}</script>`,
+`,
     `<button class="btn btn-primary" onclick="saveBucketItem()">Uložit</button>
      <button class="btn btn-ghost" onclick="closeModal()">Zrušit</button>`);
 }
