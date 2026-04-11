@@ -12873,9 +12873,9 @@ function lifegoals(){
     <div class="card mb-4">
       <div class="section-title mb-3">🌟 Vision Board</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-        ${gl.filter(g=>g.vision).slice(0,9).map(g=>`<div style="padding:12px;border-radius:12px;background:var(--surface2);text-align:center;cursor:pointer;" onclick="_goalDetail='${g.id}';renderMain();">
-          <div style="font-size:24px;">${g.icon||'🌟'}</div>
-          <div style="font-size:10px;font-weight:600;margin-top:4px;">${g.title}</div>
+        ${gl.filter(g=>g.vision).slice(0,9).map(g=>`<div style="border-radius:12px;background:var(--surface2);text-align:center;cursor:pointer;overflow:hidden;" onclick="_goalDetail='${g.id}';renderMain();">
+          ${g.image?`<div style="aspect-ratio:16/10;overflow:hidden;"><img src="${g.image}" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;"></div>`:`<div style="font-size:24px;padding-top:12px;">${g.icon||'🌟'}</div>`}
+          <div style="font-size:10px;font-weight:600;padding:${g.image?'8px 8px':'4px 12px 12px'};">${g.title}</div>
         </div>`).join('')}
         ${gl.filter(g=>g.vision).length===0?'<p class="text-muted text-sm">Označ cíle jako Vizi.</p>':''}
       </div>
