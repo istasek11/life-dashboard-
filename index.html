@@ -2857,23 +2857,27 @@ function transactions() {
       </div>
     </div>
 
-    <!-- Quick add - clean & simple -->
+    <!-- Quick add - form based -->
     <div class="card mb-3" style="padding:14px 16px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <span style="font-size:15px;">⚡</span>
         <span style="font-size:14px;font-weight:700;flex:1;">Rychlý výdaj</span>
-        <div class="flex-c gap-1">
-          <button class="btn btn-sm" id="qa-btn-dnes" style="padding:4px 10px;font-size:11px;background:var(--primary);color:#fff;border-radius:8px;" onclick="setQaDate('today')">Dnes</button>
-          <button class="btn btn-ghost btn-sm" id="qa-btn-vcera" style="padding:4px 10px;font-size:11px;" onclick="setQaDate('yesterday')">Včera</button>
-          <input type="date" id="qa-date-input" class="form-input" style="padding:3px 6px;font-size:11px;width:120px;display:none;" onchange="_qaDate=this.value">
-          <button class="btn btn-ghost btn-sm" id="qa-btn-datum" style="padding:4px 8px;font-size:11px;" onclick="setQaDate('custom')">📅</button>
-        </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:stretch;">
-        <textarea id="quick-add-input" rows="2" placeholder="Kaufland 450&#10;Pizza Roma 380&#10;Benzin 800" style="flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;background:var(--surface);color:var(--text);resize:none;font-family:inherit;line-height:1.6;" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();quickAddTx();}"></textarea>
-        <button class="btn btn-primary" onclick="quickAddTx()" style="padding:10px 16px;border-radius:10px;font-size:14px;font-weight:700;align-self:stretch;white-space:nowrap;">＋</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;">
+        <input class="form-input" id="qa-desc" placeholder="Popis (Kaufland, Pizza...)" style="font-size:13px;">
+        <select class="form-input" id="qa-cat" style="font-size:13px;">
+          ${allExpenseCats().map(c=>`<option value="${c}">${CAT_ICON[c]||'📦'} ${c}</option>`).join('')}
+        </select>
+        <select class="form-input" id="qa-account" style="font-size:13px;max-width:140px;">
+          ${(D.accounts||[]).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+          <option value="">— bez účtu —</option>
+        </select>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:6px;">Jeden řádek = jeden výdaj. Napiš co + částku.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;">
+        <input type="number" class="form-input" id="qa-amount" placeholder="Částka" style="font-size:13px;">
+        <input type="date" class="form-input" id="qa-date" value="${new Date().toISOString().slice(0,10)}" style="font-size:13px;">
+        <button class="btn btn-primary" onclick="quickAddForm()" style="padding:8px 20px;font-size:14px;font-weight:700;white-space:nowrap;">＋ Přidat</button>
+      </div>
       <div id="qa-feedback" style="display:none;margin-top:8px;font-size:12px;font-weight:600;"></div>
     </div>
 
@@ -3146,6 +3150,24 @@ function parseSingleLine(txt, date, defaultCat){
     .replace(/\s{2,}/g,' ').trim();
   if(!desc) desc=cat||'Výdaj';
   return {id:uid(),date,amount:amt,currency:'CZK',type,description:desc,category:cat};
+}
+function quickAddForm(){
+  const desc=document.getElementById('qa-desc').value.trim();
+  const cat=document.getElementById('qa-cat').value;
+  const amount=parseFloat(document.getElementById('qa-amount').value);
+  const date=document.getElementById('qa-date').value||localDateStr(new Date());
+  const accId=document.getElementById('qa-account').value;
+  if(!amount||amount<=0){alert('Zadej částku');return;}
+  const tx={id:uid(),date,amount,currency:'CZK',type:'expense',description:desc||cat,category:cat};
+  if(accId) tx.accountId=accId;
+  D.transactions.push(tx);
+  save();
+  // Reset
+  document.getElementById('qa-desc').value='';
+  document.getElementById('qa-amount').value='';
+  const fb=document.getElementById('qa-feedback');
+  if(fb){fb.style.display='block';fb.style.color='var(--success)';fb.innerHTML=`✓ ${desc||cat} — ${fmtAmt(amount)} (${date})`;setTimeout(()=>{if(fb)fb.style.display='none';},3000);}
+  setTimeout(()=>renderMain(),100);
 }
 function quickAddTx(){
   const el=document.getElementById('quick-add-input');
