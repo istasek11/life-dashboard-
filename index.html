@@ -2861,23 +2861,62 @@ function transactions() {
     <div class="card mb-3" style="padding:14px 16px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <span style="font-size:15px;">⚡</span>
-        <span style="font-size:14px;font-weight:700;flex:1;">Rychlý výdaj</span>
+        <span style="font-size:14px;font-weight:700;flex:1;" id="qa-title">Rychlý výdaj</span>
+        <div class="flex-c gap-1">
+          <button class="btn btn-sm" id="qa-mode-expense" style="padding:4px 10px;font-size:11px;background:var(--primary);color:#fff;border-radius:8px;" onclick="_qaMode='expense';renderMain();">Výdaj</button>
+          <button class="btn btn-ghost btn-sm" id="qa-mode-income" style="padding:4px 10px;font-size:11px;" onclick="_qaMode='income';renderMain();">Příjem</button>
+          <button class="btn btn-ghost btn-sm" id="qa-mode-transfer" style="padding:4px 10px;font-size:11px;" onclick="_qaMode='transfer';renderMain();">Převod</button>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;">
-        <input class="form-input" id="qa-desc" placeholder="Popis (Kaufland, Pizza...)" style="font-size:13px;">
-        <select class="form-input" id="qa-cat" style="font-size:13px;">
-          ${allExpenseCats().map(c=>`<option value="${c}">${CAT_ICON[c]||'📦'} ${c}</option>`).join('')}
-        </select>
-        <select class="form-input" id="qa-account" style="font-size:13px;max-width:140px;">
-          ${(D.accounts||[]).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
-          <option value="">— bez účtu —</option>
-        </select>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;">
-        <input type="number" class="form-input" id="qa-amount" placeholder="Částka" style="font-size:13px;">
-        <input type="date" class="form-input" id="qa-date" value="${new Date().toISOString().slice(0,10)}" style="font-size:13px;">
-        <button class="btn btn-primary" onclick="quickAddForm()" style="padding:8px 20px;font-size:14px;font-weight:700;white-space:nowrap;">＋ Přidat</button>
-      </div>
+      ${_qaMode==='transfer'?`
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;margin-bottom:8px;">
+          <div class="form-group" style="margin:0;"><label class="form-label" style="font-size:11px;">Z účtu</label><select class="form-input" id="qa-from-acc" style="font-size:13px;">
+            ${(D.accounts||[]).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+          </select></div>
+          <span style="font-size:18px;color:var(--text3);padding-bottom:8px;">→</span>
+          <div class="form-group" style="margin:0;"><label class="form-label" style="font-size:11px;">Na účet</label><select class="form-input" id="qa-to-acc" style="font-size:13px;">
+            ${(D.accounts||[]).map((a,i)=>`<option value="${a.id}" ${i===1?'selected':''}>${a.name}</option>`).join('')}
+          </select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;">
+          <input class="form-input" id="qa-desc" placeholder="Poznámka (volitelné)" style="font-size:13px;">
+          <input type="number" class="form-input" id="qa-amount" placeholder="Částka" style="font-size:13px;">
+          <input type="date" class="form-input" id="qa-date" value="${new Date().toISOString().slice(0,10)}" style="font-size:13px;">
+          <button class="btn btn-primary" onclick="quickAddTransfer()" style="padding:8px 20px;font-size:14px;font-weight:700;white-space:nowrap;">↔ Převést</button>
+        </div>
+      `:_qaMode==='income'?`
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;">
+          <input class="form-input" id="qa-desc" placeholder="Popis (Výplata, Faktura...)" style="font-size:13px;">
+          <select class="form-input" id="qa-cat" style="font-size:13px;">
+            ${allIncomeCats().map(c=>`<option value="${c}">${CAT_ICON[c]||'💰'} ${c}</option>`).join('')}
+          </select>
+          <select class="form-input" id="qa-account" style="font-size:13px;max-width:140px;">
+            ${(D.accounts||[]).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+            <option value="">— bez účtu —</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;">
+          <input type="number" class="form-input" id="qa-amount" placeholder="Částka" style="font-size:13px;">
+          <input type="date" class="form-input" id="qa-date" value="${new Date().toISOString().slice(0,10)}" style="font-size:13px;">
+          <button class="btn btn-primary" onclick="quickAddForm('income')" style="padding:8px 20px;font-size:14px;font-weight:700;white-space:nowrap;">＋ Přidat</button>
+        </div>
+      `:`
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;">
+          <input class="form-input" id="qa-desc" placeholder="Popis (Kaufland, Pizza...)" style="font-size:13px;">
+          <select class="form-input" id="qa-cat" style="font-size:13px;">
+            ${allExpenseCats().map(c=>`<option value="${c}">${CAT_ICON[c]||'📦'} ${c}</option>`).join('')}
+          </select>
+          <select class="form-input" id="qa-account" style="font-size:13px;max-width:140px;">
+            ${(D.accounts||[]).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+            <option value="">— bez účtu —</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;">
+          <input type="number" class="form-input" id="qa-amount" placeholder="Částka" style="font-size:13px;">
+          <input type="date" class="form-input" id="qa-date" value="${new Date().toISOString().slice(0,10)}" style="font-size:13px;">
+          <button class="btn btn-primary" onclick="quickAddForm('expense')" style="padding:8px 20px;font-size:14px;font-weight:700;white-space:nowrap;">＋ Přidat</button>
+        </div>
+      `}
       <div id="qa-feedback" style="display:none;margin-top:8px;font-size:12px;font-weight:600;"></div>
     </div>
 
@@ -3151,14 +3190,36 @@ function parseSingleLine(txt, date, defaultCat){
   if(!desc) desc=cat||'Výdaj';
   return {id:uid(),date,amount:amt,currency:'CZK',type,description:desc,category:cat};
 }
-function quickAddForm(){
+var _qaMode='expense';
+function quickAddTransfer(){
+  const amount=parseFloat(document.getElementById('qa-amount').value);
+  if(!amount||amount<=0){alert('Zadej částku');return;}
+  const fromAcc=document.getElementById('qa-from-acc').value;
+  const toAcc=document.getElementById('qa-to-acc').value;
+  if(!fromAcc||!toAcc){alert('Vyber oba účty');return;}
+  if(fromAcc===toAcc){alert('Účty musí být různé');return;}
+  const date=document.getElementById('qa-date').value||localDateStr(new Date());
+  const desc=document.getElementById('qa-desc').value.trim();
+  const fromName=(D.accounts.find(a=>a.id===fromAcc)||{}).name||'';
+  const toName=(D.accounts.find(a=>a.id===toAcc)||{}).name||'';
+  // Create transfer as two transactions
+  D.transactions.push({id:uid(),date,amount,currency:'CZK',type:'transfer',description:desc||'Převod na '+toName,category:'Převod',accountId:fromAcc,toAccountId:toAcc});
+  save();
+  document.getElementById('qa-desc').value='';
+  document.getElementById('qa-amount').value='';
+  const fb=document.getElementById('qa-feedback');
+  if(fb){fb.style.display='block';fb.style.color='var(--success)';fb.innerHTML=`✓ Převod ${fmtAmt(amount)}: ${fromName} → ${toName}`;setTimeout(()=>{if(fb)fb.style.display='none';},3000);}
+  setTimeout(()=>renderMain(),100);
+}
+function quickAddForm(type){
+  type=type||'expense';
   const desc=document.getElementById('qa-desc').value.trim();
   const cat=document.getElementById('qa-cat').value;
   const amount=parseFloat(document.getElementById('qa-amount').value);
   const date=document.getElementById('qa-date').value||localDateStr(new Date());
   const accId=document.getElementById('qa-account').value;
   if(!amount||amount<=0){alert('Zadej částku');return;}
-  const tx={id:uid(),date,amount,currency:'CZK',type:'expense',description:desc||cat,category:cat};
+  const tx={id:uid(),date,amount,currency:'CZK',type,description:desc||cat,category:cat};
   if(accId) tx.accountId=accId;
   D.transactions.push(tx);
   save();
