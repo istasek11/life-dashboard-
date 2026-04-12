@@ -7317,30 +7317,58 @@ function funds(){
     ${ff.map(f=>{
       const czk=toCZK(f.amount||0,f.currency||'CZK');
       const pct=total>0?Math.round(czk/total*100):0;
-      return`<div class="card mb-2" style="border-left:4px solid ${f.color||'var(--primary)'};">
-        <div class="flex-b" style="margin-bottom:6px;">
+      const amt=f.amount||0;
+      const targetPct=f.target>0?Math.min(100,Math.round(amt/f.target*100)):0;
+      const milestonePct=f.milestone>0?Math.min(100,Math.round(amt/f.milestone*100)):0;
+      const milestoneHit=f.milestone>0&&amt>=f.milestone;
+      const targetHit=f.target>0&&amt>=f.target;
+      return`<div class="card mb-3" style="border-left:4px solid ${f.color||'var(--primary)'};">
+        <div class="flex-b" style="margin-bottom:8px;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:24px;">${f.icon||'💰'}</span>
+            <span style="font-size:28px;">${f.icon||'💰'}</span>
             <div>
-              <div style="font-size:15px;font-weight:700;">${f.name}</div>
+              <div style="font-size:16px;font-weight:700;">${f.name} ${targetHit?'<span style="color:var(--success);">✓ CÍL</span>':''}</div>
               ${f.where?`<div style="font-size:11px;color:var(--text3);">📍 ${f.where}</div>`:''}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="text-align:right;">
-              <div style="font-size:20px;font-weight:800;color:${f.color||'var(--primary)'};">${fmtAmt(f.amount||0,f.currency)}</div>
+              <div style="font-size:22px;font-weight:800;color:${f.color||'var(--primary)'};">${fmtAmt(amt,f.currency)}</div>
               ${(f.currency||'CZK')!=='CZK'?`<div style="font-size:11px;color:var(--text3);">≈ ${fmtAmt(Math.round(czk))}</div>`:''}
-              <div style="font-size:10px;color:var(--text3);">${pct}% z celku</div>
             </div>
             <button class="btn btn-ghost btn-sm btn-icon" onclick="openFundModal('${f.id}')">✏️</button>
             <button class="btn btn-ghost btn-sm btn-icon" style="color:var(--danger);" onclick="if(confirm('Smazat fond ${f.name}?')){D.funds=D.funds.filter(x=>x.id!=='${f.id}');save();renderMain();}">🗑️</button>
           </div>
         </div>
-        <div style="height:6px;background:var(--surface2);border-radius:100px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${f.color||'var(--primary)'};border-radius:100px;"></div>
-        </div>
-        ${f.note?`<div style="font-size:11px;color:var(--text3);margin-top:6px;">${f.note}</div>`:''}
-        ${f.lastUpdate?`<div style="font-size:10px;color:var(--text3);margin-top:4px;">Aktualizováno: ${f.lastUpdate}</div>`:''}
+        ${f.target>0?`
+          <div style="margin-bottom:8px;">
+            <div class="flex-b" style="font-size:11px;margin-bottom:3px;">
+              <span>🏆 Finální cíl: <strong>${fmtAmt(f.target,f.currency)}</strong></span>
+              <span style="font-weight:700;color:${targetPct>=100?'var(--success)':targetPct>=60?'var(--primary)':'var(--text3)'};">${targetPct}%</span>
+            </div>
+            <div style="height:8px;background:var(--surface2);border-radius:100px;overflow:hidden;position:relative;">
+              <div style="height:100%;width:${targetPct}%;background:${f.color||'var(--primary)'};border-radius:100px;transition:width .6s;"></div>
+              ${f.milestone>0&&f.milestone<f.target?`<div style="position:absolute;top:0;bottom:0;left:${Math.round(f.milestone/f.target*100)}%;width:2px;background:var(--warning);" title="Milník: ${fmtAmt(f.milestone,f.currency)}"></div>`:''}
+            </div>
+            <div class="flex-b" style="font-size:10px;color:var(--text3);margin-top:2px;">
+              <span>${fmtAmt(amt,f.currency)}</span>
+              <span>zbývá ${fmtAmt(Math.max(0,f.target-amt),f.currency)}</span>
+            </div>
+          </div>
+        `:''}
+        ${f.milestone>0?`
+          <div style="padding:8px 12px;background:${milestoneHit?'var(--success)10':'var(--surface2)'};border-radius:8px;margin-bottom:6px;">
+            <div class="flex-b" style="font-size:12px;">
+              <span>${milestoneHit?'✅':'🎯'} Milník: <strong>${fmtAmt(f.milestone,f.currency)}</strong></span>
+              <span style="font-weight:700;color:${milestoneHit?'var(--success)':'var(--warning)'};">${milestoneHit?'SPLNĚNO':milestonePct+'%'}</span>
+            </div>
+            ${!milestoneHit?`<div style="height:5px;background:var(--surface);border-radius:100px;overflow:hidden;margin-top:4px;">
+              <div style="height:100%;width:${milestonePct}%;background:var(--warning);border-radius:100px;"></div>
+            </div>`:''}
+          </div>
+        `:''}
+        ${f.note?`<div style="font-size:11px;color:var(--text3);margin-top:4px;">${f.note}</div>`:''}
+        ${f.lastUpdate?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">Aktualizováno: ${f.lastUpdate}</div>`:''}
       </div>`;
     }).join('')}
 
@@ -7369,6 +7397,10 @@ function openFundModal(editId){
       <div class="form-group"><label class="form-label">Barva</label><input type="color" class="form-input" id="fund-color" value="${f?f.color||'#7c3aed':'#7c3aed'}" style="height:38px;"></div>
     </div>
     <div class="form-group"><label class="form-label">Kde je to uloženo?</label><input class="form-input" id="fund-where" value="${f?f.where||'':''}" placeholder="Banka, broker, hotovost, crypto peněženka..."></div>
+    <div class="fr fr2">
+      <div class="form-group"><label class="form-label">Finální cíl</label><input type="number" class="form-input" id="fund-target" value="${f?f.target||'':''}" placeholder="Cílová částka"></div>
+      <div class="form-group"><label class="form-label">Milníkový cíl</label><input type="number" class="form-input" id="fund-milestone" value="${f?f.milestone||'':''}" placeholder="Další milník"></div>
+    </div>
     <div class="form-group"><label class="form-label">Poznámka</label><input class="form-input" id="fund-note" value="${f?f.note||'':''}" placeholder="Účel, strategie..."></div>`,
     `<button class="btn btn-primary" onclick="saveFund()">Uložit</button>
      <button class="btn btn-ghost" onclick="closeModal()">Zrušit</button>`);
@@ -7378,7 +7410,7 @@ function saveFund(){
   if(!name){alert('Zadej název');return;}
   if(!D.funds) D.funds=[];
   const editId=document.getElementById('fund-edit').value;
-  const obj={id:editId||uid(),name,icon:document.getElementById('fund-icon').value.trim()||'💰',amount:parseFloat(document.getElementById('fund-amount').value)||0,currency:document.getElementById('fund-currency').value,color:document.getElementById('fund-color').value,where:document.getElementById('fund-where').value.trim(),note:document.getElementById('fund-note').value.trim(),lastUpdate:new Date().toISOString().slice(0,10)};
+  const obj={id:editId||uid(),name,icon:document.getElementById('fund-icon').value.trim()||'💰',amount:parseFloat(document.getElementById('fund-amount').value)||0,currency:document.getElementById('fund-currency').value,color:document.getElementById('fund-color').value,where:document.getElementById('fund-where').value.trim(),target:parseFloat(document.getElementById('fund-target').value)||0,milestone:parseFloat(document.getElementById('fund-milestone').value)||0,note:document.getElementById('fund-note').value.trim(),lastUpdate:new Date().toISOString().slice(0,10)};
   if(editId){const i=D.funds.findIndex(x=>x.id===editId);if(i>=0)D.funds[i]=obj;}
   else D.funds.push(obj);
   save();closeModal();renderMain();
